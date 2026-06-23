@@ -334,6 +334,56 @@
       background: linear-gradient(to bottom, #f87171 0%, #dc2626 100%) !important;
     }
 
+    /* In-scale indicator: a soft gold dot on every key that belongs to the
+       current key's major scale. White keys get the dot above the letter; black
+       keys get it just below the top edge so it stays clear of the label stack. */
+    .key.in-scale::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #fbbf24;
+      box-shadow: 0 0 6px rgba(251, 191, 36, 0.55);
+      pointer-events: none;
+    }
+    .key.white.in-scale::after { bottom: 28px; }
+    .key.black.in-scale::after { top: 7px; width: 5px; height: 5px; }
+
+    /* Tonic gets a brighter, slightly larger marker so the "home" note is obvious. */
+    .key.in-scale.tonic::after {
+      background: #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.65);
+      width: 8px;
+      height: 8px;
+    }
+    .key.black.in-scale.tonic::after { width: 7px; height: 7px; }
+
+    .scale-toggle {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      transition: color 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+      font-family: inherit;
+    }
+    .scale-toggle:hover {
+      color: rgba(255, 255, 255, 0.95);
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .scale-toggle.active {
+      background: #fbbf24;
+      border-color: #f59e0b;
+      color: #1e3a5f;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
     .ghost-fade {
       animation: ghostFade 1.4s ease-out forwards;
       pointer-events: none;
@@ -389,6 +439,7 @@
         <label for="key-signature">Key</label>
         <select id="key-signature" aria-label="Key signature"></select>
       </div>
+      <button class="scale-toggle" id="scale-toggle" aria-pressed="false" title="Highlight the notes of the current key's major scale on the piano">Show scale</button>
     </div>
 
     <div class="staff-container">
@@ -576,6 +627,7 @@
     const clefBtns = document.querySelectorAll('.clef-btn');
     const keySelect = document.getElementById('key-signature');
     const modBtns = document.querySelectorAll('.mod');
+    const scaleToggleBtn = document.getElementById('scale-toggle');
 
     let currentClefId = localStorage.getItem('sheetReaderClef') || 'treble';
     if (!CLEFS[currentClefId]) currentClefId = 'treble';
@@ -589,6 +641,7 @@
     let streak = 0;
     let best = parseInt(localStorage.getItem('sheetReaderBest') || '0', 10);
     let locked = false;
+    let showScale = localStorage.getItem('sheetReaderShowScale') === 'true';
 
     bestEl.textContent = best;
 
@@ -715,7 +768,58 @@
         });
         pianoEl.appendChild(btn);
       }
+
+      applyScaleHighlight();
     }
+
+    // Parse a key signature id like "C", "F#", "Bb" into its tonic letter and
+    // accidental (so we know which physical key is the "home" note to mark).
+    function tonicOf(keySigId) {
+      const letter = keySigId[0];
+      const acc = keySigId.length > 1 ? (keySigId[1] === '#' ? '#' : 'b') : '';
+      return { letter, acc };
+    }
+
+    // Add/remove the `in-scale` and `tonic` classes on every piano key based on
+    // the current key signature. A white key is in-scale when its letter is NOT
+    // altered by the signature; a black key is in-scale when either of its
+    // enharmonic letters is altered to match its accidental.
+    function applyScaleHighlight() {
+      scaleToggleBtn.classList.toggle('active', showScale);
+      scaleToggleBtn.setAttribute('aria-pressed', showScale ? 'true' : 'false');
+
+      const altered = getAlteredLetters(currentKeySigId);
+      const tonic = tonicOf(currentKeySigId);
+
+      pianoEl.querySelectorAll('.key.white').forEach((k) => {
+        const letter = k.dataset.letter;
+        const inScale = showScale && !altered[letter];
+        k.classList.toggle('in-scale', inScale);
+        k.classList.toggle('tonic', inScale && tonic.acc === '' && tonic.letter === letter);
+      });
+
+      pianoEl.querySelectorAll('.key.black').forEach((k) => {
+        const sharp = k.dataset.sharp;
+        const flat = k.dataset.flat;
+        const sharpInScale = altered[sharp] === '#';
+        const flatInScale  = altered[flat]  === 'b';
+        const inScale = showScale && (sharpInScale || flatInScale);
+        k.classList.toggle('in-scale', inScale);
+        // Tonic on a black key means the key signature's tonic is itself a sharp/flat
+        // (e.g. F# major, Bb major). Match by whichever spelling the tonic uses.
+        const isTonic = inScale && (
+          (tonic.acc === '#' && tonic.letter === sharp) ||
+          (tonic.acc === 'b' && tonic.letter === flat)
+        );
+        k.classList.toggle('tonic', isTonic);
+      });
+    }
+
+    scaleToggleBtn.addEventListener('click', () => {
+      showScale = !showScale;
+      localStorage.setItem('sheetReaderShowScale', String(showScale));
+      applyScaleHighlight();
+    });
 
     // Map a (letter, accidental) guess back to a visual key. When the piano spans
     // multiple octaves we pick the candidate closest to the currently-displayed
