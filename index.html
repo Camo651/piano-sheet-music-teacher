@@ -29,7 +29,7 @@
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 16px;
       padding: 32px;
-      max-width: 720px;
+      max-width: 900px;
       width: 100%;
       text-align: center;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
@@ -309,6 +309,10 @@
     .key.black .lbl-sharp { color: rgba(255, 255, 255, 0.95); }
     .key.black .lbl-flat  { color: rgba(255, 255, 255, 0.55); font-size: 7px; }
 
+    .piano.hide-labels .key.white { color: transparent; }
+    .piano.hide-labels .key.black .lbl-sharp,
+    .piano.hide-labels .key.black .lbl-flat { visibility: hidden; }
+
     .key.black:hover {
       background: linear-gradient(to bottom, #4a4a4a 0%, #1a1a1a 100%);
     }
@@ -384,6 +388,69 @@
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     }
 
+    .accidental-slider {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 6px 12px;
+    }
+
+    .accidental-slider label {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .accidental-slider input[type="range"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 110px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      margin: 0;
+    }
+    .accidental-slider input[type="range"]:focus { outline: 2px solid rgba(255, 255, 255, 0.4); outline-offset: 4px; }
+
+    .accidental-slider input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fbbf24;
+      border: 2px solid #1e3a5f;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.15s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    .accidental-slider input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+    .accidental-slider input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fbbf24;
+      border: 2px solid #1e3a5f;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .accidental-value {
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.85);
+      font-variant-numeric: tabular-nums;
+      min-width: 38px;
+      text-align: right;
+    }
+
     .ghost-fade {
       animation: ghostFade 1.4s ease-out forwards;
       pointer-events: none;
@@ -440,6 +507,12 @@
         <select id="key-signature" aria-label="Key signature"></select>
       </div>
       <button class="scale-toggle" id="scale-toggle" aria-pressed="false" title="Highlight the notes of the current key's major scale on the piano">Show scale</button>
+      <button class="scale-toggle" id="labels-toggle" aria-pressed="true" title="Show or hide the letter labels printed on the piano keys">Show labels</button>
+      <div class="accidental-slider" title="Percent of notes that appear with an explicit sharp, flat, or natural sign">
+        <label for="accidental-rate">Accidentals</label>
+        <input type="range" id="accidental-rate" min="0" max="100" value="15" aria-label="Percent of notes shown with an explicit accidental" />
+        <span class="accidental-value" id="accidental-value">15%</span>
+      </div>
     </div>
 
     <div class="staff-container">
@@ -628,6 +701,9 @@
     const keySelect = document.getElementById('key-signature');
     const modBtns = document.querySelectorAll('.mod');
     const scaleToggleBtn = document.getElementById('scale-toggle');
+    const labelsToggleBtn = document.getElementById('labels-toggle');
+    const accidentalSlider = document.getElementById('accidental-rate');
+    const accidentalValueEl = document.getElementById('accidental-value');
 
     let currentClefId = localStorage.getItem('sheetReaderClef') || 'treble';
     if (!CLEFS[currentClefId]) currentClefId = 'treble';
@@ -642,6 +718,22 @@
     let best = parseInt(localStorage.getItem('sheetReaderBest') || '0', 10);
     let locked = false;
     let showScale = localStorage.getItem('sheetReaderShowScale') === 'true';
+    // Labels default to visible; only treat an explicit 'false' as hidden so
+    // first-time visitors still see the letters on each key.
+    let showLabels = localStorage.getItem('sheetReaderShowLabels') !== 'false';
+    // Percent (0–100) of notes that appear with an explicit sharp/flat/natural
+    // sign. 0 disables accidentals entirely; 100 makes every note carry one
+    // (when a musically valid accidental exists for that letter).
+    let accidentalRate = parseInt(localStorage.getItem('sheetReaderAccidentalRate') || '15', 10);
+    if (!Number.isFinite(accidentalRate) || accidentalRate < 0 || accidentalRate > 100) accidentalRate = 15;
+    accidentalSlider.value = String(accidentalRate);
+    accidentalValueEl.textContent = `${accidentalRate}%`;
+
+    accidentalSlider.addEventListener('input', () => {
+      accidentalRate = parseInt(accidentalSlider.value, 10);
+      accidentalValueEl.textContent = `${accidentalRate}%`;
+      localStorage.setItem('sheetReaderAccidentalRate', String(accidentalRate));
+    });
 
     bestEl.textContent = best;
 
@@ -699,12 +791,57 @@
       setActiveModifier('');
     }
 
-    // Build a piano covering the full pitch range of the given clef. Whites span
-    // every natural in the clef's note list; blacks are inserted at every
-    // whole-step gap (i.e. anywhere not E→F or B→C).
+    // Walk to the next natural letter below/above a given (letter, octave).
+    const NATURAL_LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    function naturalBelow(letter, octave) {
+      const i = NATURAL_LETTERS.indexOf(letter);
+      return i === 0
+        ? { letter: 'B', octave: octave - 1 }
+        : { letter: NATURAL_LETTERS[i - 1], octave };
+    }
+    function naturalAbove(letter, octave) {
+      const i = NATURAL_LETTERS.indexOf(letter);
+      return i === NATURAL_LETTERS.length - 1
+        ? { letter: 'C', octave: octave + 1 }
+        : { letter: NATURAL_LETTERS[i + 1], octave };
+    }
+    // Absolute pitch in semitones for a natural note, used to measure how
+    // far the piano's buffer zone extends past the staff's playable range.
+    function naturalSemitones(letter, octave) {
+      return octave * 12 + LETTER_SEMITONES[letter];
+    }
+
+    // Build a piano covering the full pitch range of the given clef plus a
+    // whole-step buffer zone on each end (so the staff's lowest/highest notes
+    // aren't visually flush with the edge of the keyboard). Whites span every
+    // natural in the extended list; blacks are inserted at every whole-step
+    // gap (i.e. anywhere not E→F or B→C).
     function buildPiano(clefId) {
       pianoEl.innerHTML = '';
-      const notes = CLEFS[clefId].notes;
+      const baseNotes = CLEFS[clefId].notes;
+
+      // Extend by at least 2 semitones (a whole step) on each end. When the
+      // boundary note's neighbor is a half step away (C↔B, F↔E), we keep
+      // adding naturals until the cumulative buffer reaches a whole step.
+      const lowExtras = [];
+      let lowL = baseNotes[0].name[0];
+      let lowO = parseInt(baseNotes[0].name.slice(1), 10);
+      const lowAnchor = naturalSemitones(lowL, lowO);
+      while (lowAnchor - naturalSemitones(lowL, lowO) < 2) {
+        ({ letter: lowL, octave: lowO } = naturalBelow(lowL, lowO));
+        lowExtras.unshift({ name: `${lowL}${lowO}`, y: 0 });
+      }
+
+      const highExtras = [];
+      let highL = baseNotes[baseNotes.length - 1].name[0];
+      let highO = parseInt(baseNotes[baseNotes.length - 1].name.slice(1), 10);
+      const highAnchor = naturalSemitones(highL, highO);
+      while (naturalSemitones(highL, highO) - highAnchor < 2) {
+        ({ letter: highL, octave: highO } = naturalAbove(highL, highO));
+        highExtras.push({ name: `${highL}${highO}`, y: 0 });
+      }
+
+      const notes = [...lowExtras, ...baseNotes, ...highExtras];
 
       // Whites first so they sit in DOM order left-to-right; blacks layered on top.
       notes.forEach((n) => {
@@ -770,6 +907,7 @@
       }
 
       applyScaleHighlight();
+      applyLabelVisibility();
     }
 
     // Parse a key signature id like "C", "F#", "Bb" into its tonic letter and
@@ -821,6 +959,19 @@
       applyScaleHighlight();
     });
 
+    function applyLabelVisibility() {
+      pianoEl.classList.toggle('hide-labels', !showLabels);
+      labelsToggleBtn.classList.toggle('active', showLabels);
+      labelsToggleBtn.setAttribute('aria-pressed', showLabels ? 'true' : 'false');
+      labelsToggleBtn.textContent = showLabels ? 'Hide labels' : 'Show labels';
+    }
+
+    labelsToggleBtn.addEventListener('click', () => {
+      showLabels = !showLabels;
+      localStorage.setItem('sheetReaderShowLabels', String(showLabels));
+      applyLabelVisibility();
+    });
+
     // Map a (letter, accidental) guess back to a visual key. When the piano spans
     // multiple octaves we pick the candidate closest to the currently-displayed
     // note's octave, so keyboard presses light up the most contextually relevant key.
@@ -862,6 +1013,35 @@
       });
     });
 
+    // Roll for an explicit accidental drawn next to the note head. The
+    // `accidentalRate` slider (0–100) sets the overall chance that this note
+    // is shown with a sharp / flat / natural sign at all. When we do show one,
+    // it's picked uniformly from whatever's musically valid for this letter:
+    //   - '#' is invalid if the key signature already sharps this letter, or
+    //     it's B/E (B♯=C, E♯=F — enharmonic, no labeled key)
+    //   - 'b' is invalid if the key signature already flats this letter, or
+    //     it's C/F (C♭=B, F♭=E — enharmonic, no labeled key)
+    //   - 'n' is only valid when the key signature alters this letter (only
+    //     then is there anything for the natural sign to cancel)
+    // Every standard letter has at least one valid accidental, so at 100% the
+    // note will always show one.
+    function rollDisplayAccidental(letter) {
+      if (accidentalRate <= 0) return '';
+      if (Math.random() * 100 >= accidentalRate) return '';
+
+      const keySigAcc = getAlteredLetters(currentKeySigId)[letter] || '';
+      const sharpIsEnharmonic = letter === 'B' || letter === 'E';
+      const flatIsEnharmonic  = letter === 'C' || letter === 'F';
+
+      const valid = [];
+      if (keySigAcc !== '#' && !sharpIsEnharmonic) valid.push('#');
+      if (keySigAcc !== 'b' && !flatIsEnharmonic)  valid.push('b');
+      if (keySigAcc !== '')                        valid.push('n');
+
+      if (valid.length === 0) return '';
+      return valid[Math.floor(Math.random() * valid.length)];
+    }
+
     function pickRandomNote() {
       const notes = CLEFS[currentClefId].notes;
       let next = notes[Math.floor(Math.random() * notes.length)];
@@ -869,7 +1049,8 @@
       if (currentNote && next.name === currentNote.name) {
         next = notes[(notes.indexOf(next) + 1) % notes.length];
       }
-      return next;
+      const displayAcc = rollDisplayAccidental(next.name[0]);
+      return { name: next.name, y: next.y, displayAcc };
     }
 
     // Return a map of letter -> '#'|'b' for the active key signature.
@@ -987,6 +1168,24 @@
       // Ledger lines above the staff (only at line positions: 80, 60).
       if (note.y <= 80) {
         for (let y = 80; y >= note.y; y -= 20) drawLedger(y);
+      }
+
+      // Explicit accidental drawn just in front of the note head when this
+      // round's note is rolled as sharp, flat, or natural (overrides key sig).
+      if (note.displayAcc) {
+        const isFlat = note.displayAcc === 'b';
+        const acc = document.createElementNS(SVG_NS, 'text');
+        acc.setAttribute('x', NOTE_X - 18);
+        acc.setAttribute('y', note.y + (isFlat ? -2 : 0));
+        acc.setAttribute('font-size', isFlat ? 32 : 28);
+        acc.setAttribute('fill', '#1a1a1a');
+        acc.setAttribute('font-family', 'Times, serif');
+        acc.setAttribute('text-anchor', 'middle');
+        acc.setAttribute('dominant-baseline', 'middle');
+        acc.textContent = note.displayAcc === '#' ? '\u266F'
+                        : note.displayAcc === 'b' ? '\u266D'
+                        : '\u266E';
+        noteG.appendChild(acc);
       }
 
       // Quarter note head (filled, slightly tilted ellipse).
@@ -1117,8 +1316,20 @@
       const noteLetter = currentNote.name[0];
       const octave = currentNote.name.slice(1);
       const altered = getAlteredLetters(currentKeySigId);
-      const expectedAccidental = altered[noteLetter] || '';
-      const fullName = `${noteLetter}${accidentalSymbol(expectedAccidental)}${octave}`;
+
+      // When a note is shown with an explicit accidental, it overrides the
+      // key signature for this single note: '#'/'b' shift the pitch, and
+      // '\u266E' (natural) cancels any key-signature alteration on this letter.
+      let expectedAccidental;
+      let displaySymbol;
+      if (currentNote.displayAcc === '#')      { expectedAccidental = '#'; displaySymbol = '\u266F'; }
+      else if (currentNote.displayAcc === 'b') { expectedAccidental = 'b'; displaySymbol = '\u266D'; }
+      else if (currentNote.displayAcc === 'n') { expectedAccidental = '';  displaySymbol = '\u266E'; }
+      else {
+        expectedAccidental = altered[noteLetter] || '';
+        displaySymbol = accidentalSymbol(expectedAccidental);
+      }
+      const fullName = `${noteLetter}${displaySymbol}${octave}`;
 
       const correct = letter === noteLetter && accidental === expectedAccidental;
 
