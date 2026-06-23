@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sheet Music Reader</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #1e3a5f 0%, #0a1929 100%);
+      color: #fff;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .container {
+      padding: 32px;
+      max-width: 900px;
+      width: 100%;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .subtitle {
+      margin: 0 0 24px;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-bottom: 20px;
+    }
+    /* The `hidden` attribute alone is overridden by .stats's `display: flex`,
+       so re-assert display: none whenever the row is meant to be hidden. */
+    .stats[hidden] { display: none; }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-value {
+      font-size: 26px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .settings-panel {
+      margin-bottom: 18px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      overflow: hidden;
+      text-align: left;
+    }
+
+    .settings-panel > summary {
+      cursor: pointer;
+      padding: 12px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.7);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      user-select: none;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .settings-panel > summary::-webkit-details-marker { display: none; }
+
+    .settings-panel > summary::after {
+      content: '\25BE';
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.5);
+      transition: transform 0.2s ease;
+      line-height: 1;
+    }
+
+    .settings-panel[open] > summary::after { transform: rotate(-180deg); }
+
+    .settings-panel > summary:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    .settings-panel[open] > summary {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .settings-panel > .controls {
+      padding: 16px;
+    }
+
+    /* In speed mode the start/stop button rides along with the timing stats,
+       so the row mixes a chunky button with the numeric stats. Keep things
+       vertically centered and give the button a bit more breathing room. */
+    .stats-speed {
+      gap: 24px;
+    }
+    .stats-speed .speed-btn { align-self: center; }
+
+    .clef-toggle {
+      display: inline-flex;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .clef-btn {
+      background: transparent;
+      color: rgba(255, 255, 255, 0.6);
+      border: none;
+      padding: 8px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: color 0.15s ease, background 0.2s ease;
+      font-family: inherit;
+    }
+
+    .clef-btn:hover { color: rgba(255, 255, 255, 0.9); }
+
+    .clef-btn.active {
+      background: rgba(255, 255, 255, 0.95);
+      color: #1e3a5f;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .key-picker {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 4px 4px 4px 14px;
+      gap: 10px;
+    }
+
+    .key-picker label {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .key-picker select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-color: rgba(255, 255, 255, 0.95);
+      color: #1e3a5f;
+      border: none;
+      border-radius: 7px;
+      padding: 8px 30px 8px 12px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%231e3a5f' d='M6 7L0 1l1.4-1.4L6 4.2l4.6-4.6L12 1z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 10px;
+    }
+
+    .key-picker select:focus { outline: 2px solid rgba(255, 255, 255, 0.4); outline-offset: 1px; }
+
+    .staff-container {
+      background: #fafafa;
+      border-radius: 12px;
+      padding: 20px 8px;
+      margin-bottom: 20px;
+      box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .staff {
+      width: 100%;
+      height: auto;
+      display: block;
+      max-height: 260px;
+    }
+
+    .message {
+      min-height: 24px;
+      margin-bottom: 18px;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      transition: opacity 0.2s;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    .message.correct { color: #4ade80; }
+    .message.incorrect { color: #f87171; }
+
+    .piano-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .piano-scroll {
+      max-width: 100%;
+      overflow-x: auto;
+      padding: 2px 2px 6px;
+      /* hide native scrollbar visually but keep functionality */
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+    .piano-scroll::-webkit-scrollbar { height: 6px; }
+    .piano-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 3px; }
+    .piano-scroll::-webkit-scrollbar-track { background: transparent; }
+
+    .piano {
+      --white-w: 36px;
+      --white-h: 144px;
+      --black-w: 24px;
+      --black-h: 92px;
+      position: relative;
+      display: flex;
+      gap: 0;
+      padding: 6px 6px 8px;
+      width: max-content;
+      margin: 0 auto;
+      background: linear-gradient(to bottom, #0a0a0a, #1a1a1a);
+      border-radius: 6px 6px 12px 12px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .key {
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      padding: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .key.white {
+      width: var(--white-w);
+      height: var(--white-h);
+      background: linear-gradient(to bottom, #ffffff 0%, #ffffff 88%, #d8dde3 100%);
+      color: #1e3a5f;
+      border-right: 1px solid #c4ccd4;
+      border-radius: 0 0 6px 6px;
+      font-size: 12px;
+      padding-bottom: 10px;
+      transition: background 0.08s ease, transform 0.06s ease;
+      position: relative;
+      z-index: 1;
+      flex-shrink: 0;
+    }
+    .key.white:last-of-type { border-right: none; }
+
+    .key.white:hover {
+      background: linear-gradient(to bottom, #f4f7fa 0%, #e4ebf1 100%);
+    }
+    .key.white:active,
+    .key.white.pressed {
+      background: linear-gradient(to bottom, #d8e0e8 0%, #c0c9d2 100%);
+    }
+
+    .key.black {
+      position: absolute;
+      top: 6px;
+      width: var(--black-w);
+      height: var(--black-h);
+      left: calc(6px + var(--white-w) * var(--pos) - var(--black-w) / 2);
+      background: linear-gradient(to bottom, #3a3a3a 0%, #0a0a0a 92%, #2a2a2a 100%);
+      color: rgba(255, 255, 255, 0.85);
+      border-radius: 0 0 4px 4px;
+      font-size: 8px;
+      padding-bottom: 6px;
+      box-shadow: 0 3px 0 #000, 0 5px 10px rgba(0, 0, 0, 0.55), inset 0 -2px 0 rgba(255, 255, 255, 0.06);
+      transition: background 0.08s ease, transform 0.05s ease, box-shadow 0.08s ease;
+      z-index: 2;
+      letter-spacing: 0.02em;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 2px;
+      line-height: 1;
+    }
+
+    .key.black .lbl-sharp { color: rgba(255, 255, 255, 0.95); }
+    .key.black .lbl-flat  { color: rgba(255, 255, 255, 0.55); font-size: 7px; }
+
+    .piano.hide-labels .key.white { color: transparent; }
+    .piano.hide-labels .key.black .lbl-sharp,
+    .piano.hide-labels .key.black .lbl-flat { visibility: hidden; }
+
+    .key.black:hover {
+      background: linear-gradient(to bottom, #4a4a4a 0%, #1a1a1a 100%);
+    }
+    .key.black:active,
+    .key.black.pressed {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #000, 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+      background: linear-gradient(to bottom, #2a2a2a 0%, #050505 100%);
+    }
+
+    .key.correct-flash {
+      background: #4ade80 !important;
+      color: #fff !important;
+    }
+    .key.wrong-flash {
+      background: #f87171 !important;
+      color: #fff !important;
+    }
+    .key.black.correct-flash {
+      background: linear-gradient(to bottom, #4ade80 0%, #16a34a 100%) !important;
+    }
+    .key.black.wrong-flash {
+      background: linear-gradient(to bottom, #f87171 0%, #dc2626 100%) !important;
+    }
+
+    /* In-scale indicator: a soft gold dot on every key that belongs to the
+       current key's major scale. White keys get the dot above the letter; black
+       keys get it just below the top edge so it stays clear of the label stack. */
+    .key.in-scale::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #fbbf24;
+      box-shadow: 0 0 6px rgba(251, 191, 36, 0.55);
+      pointer-events: none;
+    }
+    .key.white.in-scale::after { bottom: 28px; }
+    .key.black.in-scale::after { top: 7px; width: 5px; height: 5px; }
+
+    /* Tonic gets a brighter, slightly larger marker so the "home" note is obvious. */
+    .key.in-scale.tonic::after {
+      background: #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.65);
+      width: 8px;
+      height: 8px;
+    }
+    .key.black.in-scale.tonic::after { width: 7px; height: 7px; }
+
+    .scale-toggle {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      transition: color 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+      font-family: inherit;
+    }
+    .scale-toggle:hover {
+      color: rgba(255, 255, 255, 0.95);
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .scale-toggle.active {
+      background: #fbbf24;
+      border-color: #f59e0b;
+      color: #1e3a5f;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .speed-btn {
+      background: #4ade80;
+      border: 1px solid #22c55e;
+      border-radius: 10px;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #14532d;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+      font-family: inherit;
+      letter-spacing: 0.02em;
+    }
+    .speed-btn:hover { background: #22c55e; color: #fff; }
+    .speed-btn:active { transform: translateY(1px); }
+    .speed-btn.recording {
+      background: #f87171;
+      border-color: #ef4444;
+      color: #7f1d1d;
+    }
+    .speed-btn.recording:hover { background: #ef4444; color: #fff; }
+
+    .accidental-slider {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 6px 12px;
+    }
+
+    .accidental-slider label {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .accidental-slider input[type="range"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 110px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      margin: 0;
+    }
+    .accidental-slider input[type="range"]:focus { outline: 2px solid rgba(255, 255, 255, 0.4); outline-offset: 4px; }
+
+    .accidental-slider input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fbbf24;
+      border: 2px solid #1e3a5f;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.15s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    .accidental-slider input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+    .accidental-slider input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fbbf24;
+      border: 2px solid #1e3a5f;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .accidental-value {
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.85);
+      font-variant-numeric: tabular-nums;
+      min-width: 38px;
+      text-align: right;
+    }
+
+    .ghost-fade {
+      animation: ghostFade 1.4s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes ghostFade {
+      0%   { opacity: 0.7; }
+      70%  { opacity: 0.55; }
+      100% { opacity: 0; }
+    }
+
+    .hint {
+      margin-top: 14px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    @media (max-width: 480px) {
+      .container { padding: 20px; }
+      .stats { gap: 24px; }
+      .piano { --white-w: 30px; --white-h: 116px; --black-w: 20px; --black-h: 74px; }
+      .key.white { font-size: 10px; padding-bottom: 8px; }
+      .key.black { font-size: 7px; padding-bottom: 5px; }
+      .key.black .lbl-flat { font-size: 6px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Sheet Music Reader</h1>
+    <p class="subtitle">Identify the note shown on the staff</p>
+
+    <div class="stats" id="stats-free">
+      <div class="stat">
+        <span class="stat-label">Score</span>
+        <span class="stat-value" id="score">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Streak</span>
+        <span class="stat-value" id="streak">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Best</span>
+        <span class="stat-value" id="best">0</span>
+      </div>
+    </div>
+
+    <div class="stats stats-speed" id="stats-speed" hidden>
+      <button class="speed-btn" id="speed-btn" aria-label="Start or stop the timed speed session">Start</button>
+      <div class="stat">
+        <span class="stat-label">Total</span>
+        <span class="stat-value" id="speed-total">0.0s</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Avg / Note</span>
+        <span class="stat-value" id="speed-avg">—</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Best Avg</span>
+        <span class="stat-value" id="speed-best">—</span>
+      </div>
+    </div>
+
+    <details class="settings-panel">
+      <summary>Settings</summary>
+      <div class="controls">
+        <div class="clef-toggle mode-toggle" role="tablist" aria-label="Game mode">
+          <button class="clef-btn active" data-mode="free" role="tab" aria-selected="true">Free Play</button>
+          <button class="clef-btn" data-mode="speed" role="tab" aria-selected="false">Speed</button>
+        </div>
+        <div class="clef-toggle" role="tablist" aria-label="Clef selection">
+          <button class="clef-btn active" data-clef="treble" role="tab" aria-selected="true">Treble</button>
+          <button class="clef-btn" data-clef="bass" role="tab" aria-selected="false">Bass</button>
+        </div>
+        <div class="key-picker">
+          <label for="key-signature">Key</label>
+          <select id="key-signature" aria-label="Key signature"></select>
+        </div>
+        <button class="scale-toggle" id="scale-toggle" aria-pressed="false" title="Highlight the notes of the current key's major scale on the piano">Show scale</button>
+        <button class="scale-toggle" id="labels-toggle" aria-pressed="true" title="Show or hide the letter labels printed on the piano keys">Show labels</button>
+        <div class="accidental-slider" title="Percent of notes that appear with an explicit sharp, flat, or natural sign">
+          <label for="accidental-rate">Accidentals</label>
+          <input type="range" id="accidental-rate" min="0" max="100" value="15" aria-label="Percent of notes shown with an explicit accidental" />
+          <span class="accidental-value" id="accidental-value">15%</span>
+        </div>
+      </div>
+    </details>
+
+    <div class="staff-container">
+      <svg class="staff" viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" aria-label="Musical staff">
+        <g id="staff-lines"></g>
+        <g id="ledger-lines"></g>
+        <text id="clef-symbol" x="36" y="200" font-size="170" fill="#1a1a1a" font-family="Times, serif" dominant-baseline="alphabetic">𝄞</text>
+        <g id="key-signature-staff"></g>
+        <g id="ghost-note"></g>
+        <g id="note"></g>
+      </svg>
+    </div>
+
+    <div class="message" id="message">Click a letter or press A–G on your keyboard</div>
+
+    <div class="piano-stack">
+      <div class="piano-scroll">
+        <div class="piano" id="piano"></div>
+      </div>
+    </div>
+    <div class="hint" id="hint">Right Shift + letter = sharp, Left Shift + letter = flat</div>
+  </div>
+
+  <script>
+    // Vertical layout (SVG y-coordinates):
+    //   Staff lines at y = 100, 120, 140, 160, 180 (top to bottom)
+    //   Each line/space differs by 10. Lower y = higher note.
+    //
+    // Treble clef reference points:
+    //   bottom line (y=180) = E4, top line (y=100) = F5
+    //   ledger lines below at y=200 (C4 / middle C), y=220 (A3)
+    //   ledger lines above at y=80 (A5), y=60 (C6)
+    //
+    // Bass clef reference points:
+    //   bottom line (y=180) = G2, top line (y=100) = A3
+    //   ledger lines below at y=200 (E2), y=220 (C2)
+    //   ledger lines above at y=80 (C4 / middle C), y=60 (E4)
+    const CLEFS = {
+      treble: {
+        glyph: '\u{1D11E}', // 𝄞
+        fontSize: 170,
+        glyphY: 200,
+        rangeLabel: 'A3 to C6',
+        notes: [
+          { name: 'A3', y: 220 }, { name: 'B3', y: 210 },
+          { name: 'C4', y: 200 }, { name: 'D4', y: 190 },
+          { name: 'E4', y: 180 }, { name: 'F4', y: 170 },
+          { name: 'G4', y: 160 }, { name: 'A4', y: 150 },
+          { name: 'B4', y: 140 }, { name: 'C5', y: 130 },
+          { name: 'D5', y: 120 }, { name: 'E5', y: 110 },
+          { name: 'F5', y: 100 }, { name: 'G5', y: 90 },
+          { name: 'A5', y: 80 },  { name: 'B5', y: 70 },
+          { name: 'C6', y: 60 },
+        ],
+      },
+      bass: {
+        glyph: '\u{1D122}', // 𝄢
+        fontSize: 110,
+        glyphY: 178,
+        rangeLabel: 'C2 to E4',
+        notes: [
+          { name: 'C2', y: 220 }, { name: 'D2', y: 210 },
+          { name: 'E2', y: 200 }, { name: 'F2', y: 190 },
+          { name: 'G2', y: 180 }, { name: 'A2', y: 170 },
+          { name: 'B2', y: 160 }, { name: 'C3', y: 150 },
+          { name: 'D3', y: 140 }, { name: 'E3', y: 130 },
+          { name: 'F3', y: 120 }, { name: 'G3', y: 110 },
+          { name: 'A3', y: 100 }, { name: 'B3', y: 90 },
+          { name: 'C4', y: 80 },  { name: 'D4', y: 70 },
+          { name: 'E4', y: 60 },
+        ],
+      },
+    };
+
+    // Standard order in which sharps and flats appear in key signatures.
+    const SHARP_ORDER = ['F', 'C', 'G', 'D', 'A', 'E', 'B'];
+    const FLAT_ORDER  = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
+
+    // 15 standard major key signatures, indexed by tonic id.
+    // kind: 'natural' | 'sharp' | 'flat'; count: how many sharps/flats apply.
+    const KEY_SIGNATURES = {
+      'C':  { name: 'C major',  kind: 'natural', count: 0 },
+      'G':  { name: 'G major',  kind: 'sharp',   count: 1 },
+      'D':  { name: 'D major',  kind: 'sharp',   count: 2 },
+      'A':  { name: 'A major',  kind: 'sharp',   count: 3 },
+      'E':  { name: 'E major',  kind: 'sharp',   count: 4 },
+      'B':  { name: 'B major',  kind: 'sharp',   count: 5 },
+      'F#': { name: 'F\u266F major', kind: 'sharp', count: 6 },
+      'C#': { name: 'C\u266F major', kind: 'sharp', count: 7 },
+      'F':  { name: 'F major',  kind: 'flat',    count: 1 },
+      'Bb': { name: 'B\u266D major', kind: 'flat', count: 2 },
+      'Eb': { name: 'E\u266D major', kind: 'flat', count: 3 },
+      'Ab': { name: 'A\u266D major', kind: 'flat', count: 4 },
+      'Db': { name: 'D\u266D major', kind: 'flat', count: 5 },
+      'Gb': { name: 'G\u266D major', kind: 'flat', count: 6 },
+      'Cb': { name: 'C\u266D major', kind: 'flat', count: 7 },
+    };
+
+    // Where each sharp/flat sits on the staff, per clef. Y values match staff line/space positions.
+    // Each accidental lives at the line/space of the actual altered pitch in standard notation.
+    const ACCIDENTAL_POSITIONS = {
+      treble: {
+        sharp: { F: 100, C: 130, G: 90,  D: 120, A: 150, E: 110, B: 140 },
+        flat:  { B: 140, E: 110, A: 150, D: 120, G: 160, C: 130, F: 100 },
+      },
+      bass: {
+        sharp: { F: 120, C: 150, G: 110, D: 140, A: 170, E: 130, B: 160 },
+        flat:  { B: 160, E: 130, A: 170, D: 140, G: 110, C: 150, F: 120 },
+      },
+    };
+
+    const STAFF_X_START = 30;
+    const STAFF_X_END = 580;
+    // The active note's x is randomized within [NOTE_X_MIN, NOTE_X_MAX] each
+    // round. The min sits just past the ghost-note column's rightmost extent
+    // (ghost ledger lines reach x = GHOST_X + 20 = 280), so the note's leftmost
+    // accidental (≈ x − 24) clears the ghost without touching it. The max
+    // stops with enough room for ledger lines and stems before the right
+    // edge of the staff.
+    const NOTE_X_MIN = 305;
+    const NOTE_X_MAX = 540;
+    // The ghost (red shadow of a wrong guess) lives in a fixed column tucked
+    // near the clef. It's positioned so its accidental + ledger lines never
+    // collide with the note's randomized range above.
+    const GHOST_X = 260;
+    const KEY_SIG_START_X = 132;
+    const KEY_SIG_SPACING = 13;
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+
+    // --- Web Audio: synthesize notes on the fly, no external files. ---
+    // Letter -> semitone offset within an octave (C=0).
+    const LETTER_SEMITONES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+    let audioCtx = null;
+    function getAudioCtx() {
+      if (!audioCtx) {
+        const Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) return null;
+        audioCtx = new Ctor();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function noteFrequency(letter, accidental, octave) {
+      const accOffset = accidental === '#' ? 1 : accidental === 'b' ? -1 : 0;
+      const midi = (octave + 1) * 12 + LETTER_SEMITONES[letter] + accOffset;
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    // Slightly richer-than-sine timbre via a few harmonics.
+    let cachedWave = null;
+    function getPianoishWave(ctx) {
+      if (!cachedWave) {
+        const real = new Float32Array([0, 1, 0.45, 0.22, 0.12, 0.06, 0.03]);
+        const imag = new Float32Array(real.length);
+        cachedWave = ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+      }
+      return cachedWave;
+    }
+
+    function playPitch(letter, accidental, octave, duration = 0.9) {
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      const freq = noteFrequency(letter, accidental, octave);
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.setPeriodicWave(getPianoishWave(ctx));
+      osc.frequency.value = freq;
+      // Quick attack, gentle exponential decay — avoids clicks and feels musical.
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.22, now + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration + 0.05);
+    }
+
+    const staffLinesG = document.getElementById('staff-lines');
+    const ledgerLinesG = document.getElementById('ledger-lines');
+    const noteG = document.getElementById('note');
+    const ghostG = document.getElementById('ghost-note');
+    const keySigG = document.getElementById('key-signature-staff');
+    const clefSymbolEl = document.getElementById('clef-symbol');
+    const scoreEl = document.getElementById('score');
+    const streakEl = document.getElementById('streak');
+    const bestEl = document.getElementById('best');
+    const messageEl = document.getElementById('message');
+    const pianoEl = document.getElementById('piano');
+    const hintEl = document.getElementById('hint');
+    const clefBtns = document.querySelectorAll('.clef-btn');
+    const keySelect = document.getElementById('key-signature');
+    const scaleToggleBtn = document.getElementById('scale-toggle');
+    const labelsToggleBtn = document.getElementById('labels-toggle');
+    const accidentalSlider = document.getElementById('accidental-rate');
+    const accidentalValueEl = document.getElementById('accidental-value');
+    const statsFreeEl = document.getElementById('stats-free');
+    const statsSpeedEl = document.getElementById('stats-speed');
+    const speedTotalEl = document.getElementById('speed-total');
+    const speedAvgEl = document.getElementById('speed-avg');
+    const speedBestEl = document.getElementById('speed-best');
+    const speedBtn = document.getElementById('speed-btn');
+    const modeBtns = document.querySelectorAll('.mode-toggle .clef-btn');
+
+    let currentClefId = localStorage.getItem('sheetReaderClef') || 'treble';
+    if (!CLEFS[currentClefId]) currentClefId = 'treble';
+    let currentKeySigId = localStorage.getItem('sheetReaderKeySig') || 'C';
+    if (!KEY_SIGNATURES[currentKeySigId]) currentKeySigId = 'C';
+    let currentNote = null;
+    let leftShiftHeld = false;
+    let rightShiftHeld = false;
+    let score = 0;
+    let streak = 0;
+    let best = parseInt(localStorage.getItem('sheetReaderBest') || '0', 10);
+    let locked = false;
+    let showScale = localStorage.getItem('sheetReaderShowScale') === 'true';
+    // Free Play is always the default on load — speed mode is opt-in per session.
+    let currentMode = 'free';
+    localStorage.removeItem('sheetReaderMode');
+    // Speed-mode session state. `speedActive` is true between Start and Stop.
+    // `speedStartTime` is a performance.now() timestamp; total/avg are derived
+    // from (now - speedStartTime) so they keep ticking smoothly during play.
+    let speedActive = false;
+    let speedStartTime = 0;
+    let speedNoteCount = 0;
+    let speedTickInterval = null;
+    let speedBestAvgMs = parseFloat(localStorage.getItem('sheetReaderSpeedBestAvg') || '0');
+    if (!Number.isFinite(speedBestAvgMs) || speedBestAvgMs < 0) speedBestAvgMs = 0;
+    // Require at least this many notes for a session to qualify as a new
+    // personal best — keeps a single lucky-fast note from locking in an
+    // unbeatable record.
+    const SPEED_BEST_MIN_NOTES = 5;
+    // Labels default to visible; only treat an explicit 'false' as hidden so
+    // first-time visitors still see the letters on each key.
+    let showLabels = localStorage.getItem('sheetReaderShowLabels') !== 'false';
+    // Percent (0–100) of notes that appear with an explicit sharp/flat/natural
+    // sign. 0 disables accidentals entirely; 100 makes every note carry one
+    // (when a musically valid accidental exists for that letter).
+    let accidentalRate = parseInt(localStorage.getItem('sheetReaderAccidentalRate') || '15', 10);
+    if (!Number.isFinite(accidentalRate) || accidentalRate < 0 || accidentalRate > 100) accidentalRate = 15;
+    accidentalSlider.value = String(accidentalRate);
+    accidentalValueEl.textContent = `${accidentalRate}%`;
+
+    accidentalSlider.addEventListener('input', () => {
+      accidentalRate = parseInt(accidentalSlider.value, 10);
+      accidentalValueEl.textContent = `${accidentalRate}%`;
+      localStorage.setItem('sheetReaderAccidentalRate', String(accidentalRate));
+    });
+
+    // --- Speed mode -----------------------------------------------------
+    // Format milliseconds as a short, human-readable timer string. Total uses
+    // a M:SS.t style when over a minute; per-note averages stay in seconds.
+    function formatDuration(ms, opts = {}) {
+      if (!Number.isFinite(ms) || ms < 0) ms = 0;
+      if (opts.long && ms >= 60000) {
+        const m = Math.floor(ms / 60000);
+        const s = (ms % 60000) / 1000;
+        return `${m}:${s.toFixed(1).padStart(4, '0')}`;
+      }
+      return `${(ms / 1000).toFixed(opts.precise ? 2 : 1)}s`;
+    }
+
+    function updateSpeedStats() {
+      const elapsed = speedActive ? performance.now() - speedStartTime : 0;
+      speedTotalEl.textContent = formatDuration(elapsed, { long: true });
+      speedAvgEl.textContent = speedNoteCount > 0
+        ? formatDuration(elapsed / speedNoteCount, { precise: true })
+        : '\u2014';
+      speedBestEl.textContent = speedBestAvgMs > 0
+        ? formatDuration(speedBestAvgMs, { precise: true })
+        : '\u2014';
+    }
+
+    function startSpeedSession() {
+      if (speedActive) return;
+      speedActive = true;
+      speedStartTime = performance.now();
+      speedNoteCount = 0;
+      speedBtn.textContent = 'Stop';
+      speedBtn.classList.add('recording');
+      messageEl.textContent = 'Go!';
+      messageEl.className = 'message';
+      // Tick the live total every 100ms so the timer feels responsive.
+      speedTickInterval = setInterval(updateSpeedStats, 100);
+      updateSpeedStats();
+      // Pick the first note and unlock immediately — first-note time is
+      // measured from Start, which encourages players to be ready before
+      // pressing it.
+      currentNote = pickRandomNote();
+      drawNote(currentNote);
+      ghostG.innerHTML = '';
+      locked = false;
+    }
+
+    function stopSpeedSession() {
+      if (!speedActive) return;
+      speedActive = false;
+      clearInterval(speedTickInterval);
+      speedTickInterval = null;
+      const elapsed = performance.now() - speedStartTime;
+      const avg = speedNoteCount > 0 ? elapsed / speedNoteCount : 0;
+      speedBtn.textContent = 'Start';
+      speedBtn.classList.remove('recording');
+
+      let savedBest = false;
+      if (speedNoteCount >= SPEED_BEST_MIN_NOTES && avg > 0 && (speedBestAvgMs === 0 || avg < speedBestAvgMs)) {
+        speedBestAvgMs = avg;
+        localStorage.setItem('sheetReaderSpeedBestAvg', String(speedBestAvgMs));
+        savedBest = true;
+      }
+
+      if (speedNoteCount === 0) {
+        messageEl.textContent = 'Session ended — press Start to try again';
+        messageEl.className = 'message';
+      } else if (savedBest) {
+        messageEl.textContent = `New best — ${formatDuration(avg, { precise: true })} avg over ${speedNoteCount} notes`;
+        messageEl.className = 'message correct';
+      } else {
+        const summary = `${speedNoteCount} note${speedNoteCount === 1 ? '' : 's'} in ${formatDuration(elapsed, { long: true })} (${formatDuration(avg, { precise: true })} avg)`;
+        messageEl.textContent = summary;
+        messageEl.className = 'message';
+      }
+
+      // Render the final numbers one last time so the stats freeze at session end.
+      speedTotalEl.textContent = formatDuration(elapsed, { long: true });
+      speedAvgEl.textContent = avg > 0 ? formatDuration(avg, { precise: true }) : '\u2014';
+      speedBestEl.textContent = speedBestAvgMs > 0 ? formatDuration(speedBestAvgMs, { precise: true }) : '\u2014';
+
+      // Clear the staff so it's obvious the session is over.
+      noteG.innerHTML = '';
+      ledgerLinesG.innerHTML = '';
+      currentNote = null;
+      locked = true;
+    }
+
+    function setMode(mode) {
+      if (mode !== 'free' && mode !== 'speed') return;
+      if (mode === currentMode) return;
+      // Always end any in-flight speed session when leaving speed mode.
+      if (speedActive) stopSpeedSession();
+      currentMode = mode;
+
+      modeBtns.forEach((b) => {
+        const active = b.dataset.mode === mode;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      statsFreeEl.hidden = mode !== 'free';
+      statsSpeedEl.hidden = mode !== 'speed';
+
+      if (mode === 'free') {
+        // Resume normal free-play flow with a fresh note.
+        newRound();
+        messageEl.textContent = 'Click a letter or press A\u2013G on your keyboard';
+        messageEl.className = 'message';
+      } else {
+        // Park the staff until the player presses Start. Reset displayed
+        // counters so the player sees a clean "0.0s / — / best" snapshot.
+        noteG.innerHTML = '';
+        ledgerLinesG.innerHTML = '';
+        currentNote = null;
+        locked = true;
+        speedNoteCount = 0;
+        updateSpeedStats();
+        speedTotalEl.textContent = formatDuration(0, { long: true });
+        messageEl.textContent = 'Press Start to begin the speed run';
+        messageEl.className = 'message';
+      }
+    }
+
+    modeBtns.forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    speedBtn.addEventListener('click', () => {
+      if (speedActive) stopSpeedSession();
+      else startSpeedSession();
+    });
+
+    bestEl.textContent = best;
+
+    // Populate the key signature picker.
+    const KEY_GROUPS = [
+      { label: 'Natural', keys: ['C'] },
+      { label: 'Sharp keys', keys: ['G', 'D', 'A', 'E', 'B', 'F#', 'C#'] },
+      { label: 'Flat keys',  keys: ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'] },
+    ];
+    KEY_GROUPS.forEach((group) => {
+      const og = document.createElement('optgroup');
+      og.label = group.label;
+      group.keys.forEach((id) => {
+        const ks = KEY_SIGNATURES[id];
+        const opt = document.createElement('option');
+        opt.value = id;
+        const suffix = ks.count === 0 ? '' : ` (${ks.count}${ks.kind === 'sharp' ? '\u266F' : '\u266D'})`;
+        opt.textContent = `${ks.name}${suffix}`;
+        og.appendChild(opt);
+      });
+      keySelect.appendChild(og);
+    });
+    keySelect.value = currentKeySigId;
+
+    // Draw the 5 staff lines once.
+    for (let i = 0; i < 5; i++) {
+      const y = 100 + i * 20;
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', STAFF_X_START);
+      line.setAttribute('x2', STAFF_X_END);
+      line.setAttribute('y1', y);
+      line.setAttribute('y2', y);
+      line.setAttribute('stroke', '#1a1a1a');
+      line.setAttribute('stroke-width', '1.4');
+      staffLinesG.appendChild(line);
+    }
+
+    // Letters recognized by the keyboard handler (A–G).
+    const KEYS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+
+    // Send a guess + audio for a specific piano key. If `btn` carries data-octave,
+    // its octave is used for audio so each physical key sounds at its true pitch;
+    // otherwise we fall back to the currently-displayed note's octave.
+    function triggerGuess(letter, accidental, btn) {
+      let octave;
+      if (btn && btn.dataset.octave) {
+        octave = parseInt(btn.dataset.octave, 10);
+      } else if (currentNote) {
+        octave = parseInt(currentNote.name.slice(1), 10);
+      } else {
+        octave = 4;
+      }
+      playPitch(letter, accidental, octave);
+      handleGuess(letter, accidental, btn);
+    }
+
+    // Walk to the next natural letter below/above a given (letter, octave).
+    const NATURAL_LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    function naturalBelow(letter, octave) {
+      const i = NATURAL_LETTERS.indexOf(letter);
+      return i === 0
+        ? { letter: 'B', octave: octave - 1 }
+        : { letter: NATURAL_LETTERS[i - 1], octave };
+    }
+    function naturalAbove(letter, octave) {
+      const i = NATURAL_LETTERS.indexOf(letter);
+      return i === NATURAL_LETTERS.length - 1
+        ? { letter: 'C', octave: octave + 1 }
+        : { letter: NATURAL_LETTERS[i + 1], octave };
+    }
+    // Absolute pitch in semitones for a natural note, used to measure how
+    // far the piano's buffer zone extends past the staff's playable range.
+    function naturalSemitones(letter, octave) {
+      return octave * 12 + LETTER_SEMITONES[letter];
+    }
+
+    // Build a piano covering the full pitch range of the given clef plus a
+    // whole-step buffer zone on each end (so the staff's lowest/highest notes
+    // aren't visually flush with the edge of the keyboard). Whites span every
+    // natural in the extended list; blacks are inserted at every whole-step
+    // gap (i.e. anywhere not E→F or B→C).
+    function buildPiano(clefId) {
+      pianoEl.innerHTML = '';
+      const baseNotes = CLEFS[clefId].notes;
+
+      // Extend by at least 2 semitones (a whole step) on each end. When the
+      // boundary note's neighbor is a half step away (C↔B, F↔E), we keep
+      // adding naturals until the cumulative buffer reaches a whole step.
+      const lowExtras = [];
+      let lowL = baseNotes[0].name[0];
+      let lowO = parseInt(baseNotes[0].name.slice(1), 10);
+      const lowAnchor = naturalSemitones(lowL, lowO);
+      while (lowAnchor - naturalSemitones(lowL, lowO) < 2) {
+        ({ letter: lowL, octave: lowO } = naturalBelow(lowL, lowO));
+        lowExtras.unshift({ name: `${lowL}${lowO}`, y: 0 });
+      }
+
+      const highExtras = [];
+      let highL = baseNotes[baseNotes.length - 1].name[0];
+      let highO = parseInt(baseNotes[baseNotes.length - 1].name.slice(1), 10);
+      const highAnchor = naturalSemitones(highL, highO);
+      while (naturalSemitones(highL, highO) - highAnchor < 2) {
+        ({ letter: highL, octave: highO } = naturalAbove(highL, highO));
+        highExtras.push({ name: `${highL}${highO}`, y: 0 });
+      }
+
+      const notes = [...lowExtras, ...baseNotes, ...highExtras];
+
+      // Whites first so they sit in DOM order left-to-right; blacks layered on top.
+      notes.forEach((n) => {
+        const letter = n.name[0];
+        const octave = parseInt(n.name.slice(1), 10);
+        const btn = document.createElement('button');
+        btn.className = 'key white';
+        btn.dataset.letter = letter;
+        btn.dataset.octave = String(octave);
+        // Label every C with its octave for orientation; other keys get the bare letter.
+        btn.textContent = letter === 'C' ? `${letter}${octave}` : letter;
+        btn.addEventListener('click', () => triggerGuess(letter, '', btn));
+        pianoEl.appendChild(btn);
+      });
+
+      // Black keys: insert wherever the gap between consecutive whites is a whole step.
+      for (let i = 0; i < notes.length - 1; i++) {
+        const letter = notes[i].name[0];
+        const nextLetter = notes[i + 1].name[0];
+        // No black key at E→F or B→C (those are already half steps).
+        if ((letter === 'E' && nextLetter === 'F') || (letter === 'B' && nextLetter === 'C')) continue;
+        const octave = parseInt(notes[i].name.slice(1), 10);
+
+        const btn = document.createElement('button');
+        btn.className = 'key black';
+        btn.style.setProperty('--pos', String(i + 1));
+        btn.dataset.sharp = letter;
+        btn.dataset.flat = nextLetter;
+        btn.dataset.octave = String(octave);
+        btn.title = `${letter}\u266F${octave} / ${nextLetter}\u266D${octave}`;
+        btn.setAttribute('aria-label', `${letter} sharp or ${nextLetter} flat, octave ${octave}`);
+        const sharpLbl = document.createElement('span');
+        sharpLbl.className = 'lbl-sharp';
+        sharpLbl.textContent = `${letter}\u266F`;
+        const flatLbl = document.createElement('span');
+        flatLbl.className = 'lbl-flat';
+        flatLbl.textContent = `${nextLetter}\u266D`;
+        btn.appendChild(sharpLbl);
+        btn.appendChild(flatLbl);
+
+        btn.addEventListener('click', () => {
+          // Pick the spelling that matches the displayed note's letter so the
+          // right physical key always counts, even when the displayed note
+          // uses the enharmonic equivalent (e.g. A♭ in E♭ major shown on the
+          // A line). Falls back to the sharp spelling otherwise.
+          const noteLetter = currentNote ? currentNote.name[0] : null;
+          const useFlat = noteLetter === nextLetter;
+          const guessLetter = useFlat ? nextLetter : letter;
+          const acc = useFlat ? 'b' : '#';
+          triggerGuess(guessLetter, acc, btn);
+        });
+        pianoEl.appendChild(btn);
+      }
+
+      applyScaleHighlight();
+      applyLabelVisibility();
+    }
+
+    // Parse a key signature id like "C", "F#", "Bb" into its tonic letter and
+    // accidental (so we know which physical key is the "home" note to mark).
+    function tonicOf(keySigId) {
+      const letter = keySigId[0];
+      const acc = keySigId.length > 1 ? (keySigId[1] === '#' ? '#' : 'b') : '';
+      return { letter, acc };
+    }
+
+    // Add/remove the `in-scale` and `tonic` classes on every piano key based on
+    // the current key signature. A white key is in-scale when its letter is NOT
+    // altered by the signature; a black key is in-scale when either of its
+    // enharmonic letters is altered to match its accidental.
+    function applyScaleHighlight() {
+      scaleToggleBtn.classList.toggle('active', showScale);
+      scaleToggleBtn.setAttribute('aria-pressed', showScale ? 'true' : 'false');
+
+      const altered = getAlteredLetters(currentKeySigId);
+      const tonic = tonicOf(currentKeySigId);
+
+      pianoEl.querySelectorAll('.key.white').forEach((k) => {
+        const letter = k.dataset.letter;
+        const inScale = showScale && !altered[letter];
+        k.classList.toggle('in-scale', inScale);
+        k.classList.toggle('tonic', inScale && tonic.acc === '' && tonic.letter === letter);
+      });
+
+      pianoEl.querySelectorAll('.key.black').forEach((k) => {
+        const sharp = k.dataset.sharp;
+        const flat = k.dataset.flat;
+        const sharpInScale = altered[sharp] === '#';
+        const flatInScale  = altered[flat]  === 'b';
+        const inScale = showScale && (sharpInScale || flatInScale);
+        k.classList.toggle('in-scale', inScale);
+        // Tonic on a black key means the key signature's tonic is itself a sharp/flat
+        // (e.g. F# major, Bb major). Match by whichever spelling the tonic uses.
+        const isTonic = inScale && (
+          (tonic.acc === '#' && tonic.letter === sharp) ||
+          (tonic.acc === 'b' && tonic.letter === flat)
+        );
+        k.classList.toggle('tonic', isTonic);
+      });
+    }
+
+    scaleToggleBtn.addEventListener('click', () => {
+      showScale = !showScale;
+      localStorage.setItem('sheetReaderShowScale', String(showScale));
+      applyScaleHighlight();
+    });
+
+    function applyLabelVisibility() {
+      pianoEl.classList.toggle('hide-labels', !showLabels);
+      labelsToggleBtn.classList.toggle('active', showLabels);
+      labelsToggleBtn.setAttribute('aria-pressed', showLabels ? 'true' : 'false');
+      labelsToggleBtn.textContent = showLabels ? 'Hide labels' : 'Show labels';
+    }
+
+    labelsToggleBtn.addEventListener('click', () => {
+      showLabels = !showLabels;
+      localStorage.setItem('sheetReaderShowLabels', String(showLabels));
+      applyLabelVisibility();
+    });
+
+    // Map a (letter, accidental) guess back to a visual key. When the piano spans
+    // multiple octaves we pick the candidate closest to the currently-displayed
+    // note's octave, so keyboard presses light up the most contextually relevant key.
+    function findKeyButton(letter, accidental) {
+      let candidates;
+      if (accidental === '#') {
+        candidates = pianoEl.querySelectorAll(`.key.black[data-sharp="${letter}"]`);
+        if (candidates.length === 0) candidates = pianoEl.querySelectorAll(`.key.white[data-letter="${letter}"]`);
+      } else if (accidental === 'b') {
+        candidates = pianoEl.querySelectorAll(`.key.black[data-flat="${letter}"]`);
+        if (candidates.length === 0) candidates = pianoEl.querySelectorAll(`.key.white[data-letter="${letter}"]`);
+      } else {
+        candidates = pianoEl.querySelectorAll(`.key.white[data-letter="${letter}"]`);
+      }
+      if (candidates.length === 0) return null;
+      if (candidates.length === 1) return candidates[0];
+
+      const preferred = currentNote ? parseInt(currentNote.name.slice(1), 10) : null;
+      if (preferred == null) return candidates[0];
+
+      let best = candidates[0];
+      let bestDiff = Math.abs(parseInt(best.dataset.octave, 10) - preferred);
+      for (let i = 1; i < candidates.length; i++) {
+        const diff = Math.abs(parseInt(candidates[i].dataset.octave, 10) - preferred);
+        if (diff < bestDiff) { best = candidates[i]; bestDiff = diff; }
+      }
+      return best;
+    }
+
+    // Modifier button toggles (sticky until next letter click).
+    // Roll for an explicit accidental drawn next to the note head. The
+    // `accidentalRate` slider (0–100) sets the overall chance that this note
+    // is shown with a sharp / flat / natural sign at all. When we do show one,
+    // it's picked uniformly from whatever's musically valid for this letter:
+    //   - '#' is invalid if the key signature already sharps this letter, or
+    //     it's B/E (B♯=C, E♯=F — enharmonic, no labeled key)
+    //   - 'b' is invalid if the key signature already flats this letter, or
+    //     it's C/F (C♭=B, F♭=E — enharmonic, no labeled key)
+    //   - 'n' is only valid when the key signature alters this letter (only
+    //     then is there anything for the natural sign to cancel)
+    // Every standard letter has at least one valid accidental, so at 100% the
+    // note will always show one.
+    function rollDisplayAccidental(letter) {
+      if (accidentalRate <= 0) return '';
+      if (Math.random() * 100 >= accidentalRate) return '';
+
+      const keySigAcc = getAlteredLetters(currentKeySigId)[letter] || '';
+      const sharpIsEnharmonic = letter === 'B' || letter === 'E';
+      const flatIsEnharmonic  = letter === 'C' || letter === 'F';
+
+      const valid = [];
+      if (keySigAcc !== '#' && !sharpIsEnharmonic) valid.push('#');
+      if (keySigAcc !== 'b' && !flatIsEnharmonic)  valid.push('b');
+      if (keySigAcc !== '')                        valid.push('n');
+
+      if (valid.length === 0) return '';
+      return valid[Math.floor(Math.random() * valid.length)];
+    }
+
+    function pickRandomNote() {
+      const notes = CLEFS[currentClefId].notes;
+      let next = notes[Math.floor(Math.random() * notes.length)];
+      // Avoid immediately repeating the same pitch.
+      if (currentNote && next.name === currentNote.name) {
+        next = notes[(notes.indexOf(next) + 1) % notes.length];
+      }
+      const displayAcc = rollDisplayAccidental(next.name[0]);
+      // Random horizontal position so the player can't anchor on a fixed spot;
+      // they have to actually read the line/space the note occupies.
+      const x = Math.round(NOTE_X_MIN + Math.random() * (NOTE_X_MAX - NOTE_X_MIN));
+      return { name: next.name, y: next.y, displayAcc, x };
+    }
+
+    // Return a map of letter -> '#'|'b' for the active key signature.
+    function getAlteredLetters(keySigId) {
+      const ks = KEY_SIGNATURES[keySigId];
+      const map = {};
+      if (ks.kind === 'sharp') {
+        SHARP_ORDER.slice(0, ks.count).forEach((l) => (map[l] = '#'));
+      } else if (ks.kind === 'flat') {
+        FLAT_ORDER.slice(0, ks.count).forEach((l) => (map[l] = 'b'));
+      }
+      return map;
+    }
+
+    function accidentalSymbol(acc) {
+      return acc === '#' ? '\u266F' : acc === 'b' ? '\u266D' : '';
+    }
+
+    function drawKeySignature() {
+      keySigG.innerHTML = '';
+      const ks = KEY_SIGNATURES[currentKeySigId];
+      if (ks.kind === 'natural' || ks.count === 0) return;
+
+      const positions = ACCIDENTAL_POSITIONS[currentClefId][ks.kind];
+      const order = ks.kind === 'sharp' ? SHARP_ORDER : FLAT_ORDER;
+      const symbol = ks.kind === 'sharp' ? '\u266F' : '\u266D';
+      const fontSize = ks.kind === 'sharp' ? 26 : 30;
+      // Flats render with their visual center slightly above the y line; sharps are centered on it.
+      const yOffset = ks.kind === 'sharp' ? 0 : -2;
+
+      let x = KEY_SIG_START_X;
+      for (let i = 0; i < ks.count; i++) {
+        const letter = order[i];
+        const y = positions[letter];
+        const text = document.createElementNS(SVG_NS, 'text');
+        text.setAttribute('x', x);
+        text.setAttribute('y', y + yOffset);
+        text.setAttribute('font-size', fontSize);
+        text.setAttribute('fill', '#1a1a1a');
+        text.setAttribute('font-family', 'Times, serif');
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.textContent = symbol;
+        keySigG.appendChild(text);
+        x += KEY_SIG_SPACING;
+      }
+    }
+
+    function applyClef() {
+      const clef = CLEFS[currentClefId];
+      clefSymbolEl.textContent = clef.glyph;
+      clefSymbolEl.setAttribute('y', clef.glyphY);
+      clefSymbolEl.setAttribute('font-size', clef.fontSize);
+      const ks = KEY_SIGNATURES[currentKeySigId];
+      hintEl.textContent = `${clef.rangeLabel} • ${ks.name} • A–G or 1–7 to play • Shift for ♯/♭`;
+      clefBtns.forEach((btn) => {
+        const isActive = btn.dataset.clef === currentClefId;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+      drawKeySignature();
+      buildPiano(currentClefId);
+    }
+
+    function setClef(clefId) {
+      if (!CLEFS[clefId] || clefId === currentClefId) return;
+      // Changing clef mid-run would mess with the player's timing, so end the
+      // session first and let them decide whether to restart.
+      if (speedActive) stopSpeedSession();
+      currentClefId = clefId;
+      localStorage.setItem('sheetReaderClef', clefId);
+      streak = 0;
+      streakEl.textContent = streak;
+      messageEl.textContent = `Switched to ${clefId} clef`;
+      messageEl.className = 'message';
+      currentNote = null;
+      applyClef();
+      if (currentMode === 'free') newRound();
+    }
+
+    function setKeySignature(keySigId) {
+      if (!KEY_SIGNATURES[keySigId] || keySigId === currentKeySigId) return;
+      if (speedActive) stopSpeedSession();
+      currentKeySigId = keySigId;
+      localStorage.setItem('sheetReaderKeySig', keySigId);
+      streak = 0;
+      streakEl.textContent = streak;
+      messageEl.textContent = `Key signature: ${KEY_SIGNATURES[keySigId].name}`;
+      messageEl.className = 'message';
+      currentNote = null;
+      applyClef();
+      if (currentMode === 'free') newRound();
+    }
+
+    clefBtns.forEach((btn) => {
+      btn.addEventListener('click', () => setClef(btn.dataset.clef));
+    });
+    keySelect.addEventListener('change', (e) => setKeySignature(e.target.value));
+
+    function drawLedger(y, x) {
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', x - 20);
+      line.setAttribute('x2', x + 20);
+      line.setAttribute('y1', y);
+      line.setAttribute('y2', y);
+      line.setAttribute('stroke', '#1a1a1a');
+      line.setAttribute('stroke-width', '1.4');
+      ledgerLinesG.appendChild(line);
+    }
+
+    function drawNote(note) {
+      ledgerLinesG.innerHTML = '';
+      noteG.innerHTML = '';
+
+      const x = note.x;
+
+      // Ledger lines below the staff (only at line positions: 200, 220).
+      if (note.y >= 200) {
+        for (let y = 200; y <= note.y; y += 20) drawLedger(y, x);
+      }
+      // Ledger lines above the staff (only at line positions: 80, 60).
+      if (note.y <= 80) {
+        for (let y = 80; y >= note.y; y -= 20) drawLedger(y, x);
+      }
+
+      // Explicit accidental drawn just in front of the note head when this
+      // round's note is rolled as sharp, flat, or natural (overrides key sig).
+      if (note.displayAcc) {
+        const isFlat = note.displayAcc === 'b';
+        const acc = document.createElementNS(SVG_NS, 'text');
+        acc.setAttribute('x', x - 18);
+        acc.setAttribute('y', note.y + (isFlat ? -2 : 0));
+        acc.setAttribute('font-size', isFlat ? 32 : 28);
+        acc.setAttribute('fill', '#1a1a1a');
+        acc.setAttribute('font-family', 'Times, serif');
+        acc.setAttribute('text-anchor', 'middle');
+        acc.setAttribute('dominant-baseline', 'middle');
+        acc.textContent = note.displayAcc === '#' ? '\u266F'
+                        : note.displayAcc === 'b' ? '\u266D'
+                        : '\u266E';
+        noteG.appendChild(acc);
+      }
+
+      // Quarter note head (filled, slightly tilted ellipse).
+      const head = document.createElementNS(SVG_NS, 'ellipse');
+      head.setAttribute('cx', x);
+      head.setAttribute('cy', note.y);
+      head.setAttribute('rx', 9);
+      head.setAttribute('ry', 6.5);
+      head.setAttribute('fill', '#1a1a1a');
+      head.setAttribute('transform', `rotate(-22 ${x} ${note.y})`);
+      noteG.appendChild(head);
+
+      // Stem: up for notes on/below middle line (B4), down otherwise.
+      const stem = document.createElementNS(SVG_NS, 'line');
+      const stemUp = note.y >= 140;
+      if (stemUp) {
+        stem.setAttribute('x1', x + 8);
+        stem.setAttribute('x2', x + 8);
+        stem.setAttribute('y1', note.y - 2);
+        stem.setAttribute('y2', note.y - 56);
+      } else {
+        stem.setAttribute('x1', x - 8);
+        stem.setAttribute('x2', x - 8);
+        stem.setAttribute('y1', note.y + 2);
+        stem.setAttribute('y2', note.y + 56);
+      }
+      stem.setAttribute('stroke', '#1a1a1a');
+      stem.setAttribute('stroke-width', '2');
+      stem.setAttribute('stroke-linecap', 'round');
+      noteG.appendChild(stem);
+    }
+
+    function newRound() {
+      currentNote = pickRandomNote();
+      drawNote(currentNote);
+      ghostG.innerHTML = '';
+      locked = false;
+    }
+
+    // Find where (letter) sits in the current clef, preferring the octave closest to the
+    // currently displayed note so the ghost stays in a comparable register.
+    function findStaffPositionFor(letter, preferredOctave) {
+      const notes = CLEFS[currentClefId].notes;
+      const exact = notes.find((n) => n.name === `${letter}${preferredOctave}`);
+      if (exact) return exact;
+      const candidates = notes.filter((n) => n.name[0] === letter);
+      if (candidates.length === 0) return null;
+      return candidates.reduce((best, n) => {
+        const o = parseInt(n.name.slice(1), 10);
+        const bo = parseInt(best.name.slice(1), 10);
+        return Math.abs(o - preferredOctave) < Math.abs(bo - preferredOctave) ? n : best;
+      });
+    }
+
+    function drawGhostNote(letter, accidental, preferredOctave) {
+      const target = findStaffPositionFor(letter, preferredOctave);
+      if (!target) return;
+      const y = target.y;
+
+      const g = document.createElementNS(SVG_NS, 'g');
+      g.setAttribute('class', 'ghost-fade');
+      g.setAttribute('fill', '#f87171');
+      g.setAttribute('stroke', '#f87171');
+
+      // Ledger lines mirroring drawNote, but in red and only for this ghost.
+      const ledgers = [];
+      if (y >= 200) for (let ly = 200; ly <= y; ly += 20) ledgers.push(ly);
+      if (y <= 80)  for (let ly = 80;  ly >= y; ly -= 20) ledgers.push(ly);
+      ledgers.forEach((ly) => {
+        const line = document.createElementNS(SVG_NS, 'line');
+        line.setAttribute('x1', GHOST_X - 20);
+        line.setAttribute('x2', GHOST_X + 20);
+        line.setAttribute('y1', ly);
+        line.setAttribute('y2', ly);
+        line.setAttribute('stroke-width', '1.4');
+        g.appendChild(line);
+      });
+
+      if (accidental) {
+        const acc = document.createElementNS(SVG_NS, 'text');
+        acc.setAttribute('x', GHOST_X - 18);
+        acc.setAttribute('y', y + (accidental === 'b' ? -1 : 1));
+        acc.setAttribute('font-size', accidental === 'b' ? 26 : 22);
+        acc.setAttribute('font-family', 'Times, serif');
+        acc.setAttribute('text-anchor', 'middle');
+        acc.setAttribute('dominant-baseline', 'middle');
+        acc.setAttribute('stroke', 'none');
+        acc.textContent = accidental === '#' ? '\u266F' : '\u266D';
+        g.appendChild(acc);
+      }
+
+      const head = document.createElementNS(SVG_NS, 'ellipse');
+      head.setAttribute('cx', GHOST_X);
+      head.setAttribute('cy', y);
+      head.setAttribute('rx', 9);
+      head.setAttribute('ry', 6.5);
+      head.setAttribute('stroke', 'none');
+      head.setAttribute('transform', `rotate(-22 ${GHOST_X} ${y})`);
+      g.appendChild(head);
+
+      const stem = document.createElementNS(SVG_NS, 'line');
+      const stemUp = y >= 140;
+      if (stemUp) {
+        stem.setAttribute('x1', GHOST_X + 8);
+        stem.setAttribute('x2', GHOST_X + 8);
+        stem.setAttribute('y1', y - 2);
+        stem.setAttribute('y2', y - 56);
+      } else {
+        stem.setAttribute('x1', GHOST_X - 8);
+        stem.setAttribute('x2', GHOST_X - 8);
+        stem.setAttribute('y1', y + 2);
+        stem.setAttribute('y2', y + 56);
+      }
+      stem.setAttribute('stroke-width', '2');
+      stem.setAttribute('stroke-linecap', 'round');
+      g.appendChild(stem);
+
+      ghostG.appendChild(g);
+      setTimeout(() => { if (g.parentNode === ghostG) ghostG.removeChild(g); }, 1500);
+    }
+
+    function handleGuess(letter, accidental, btn) {
+      if (locked || !currentNote) return;
+      const noteLetter = currentNote.name[0];
+      const octave = currentNote.name.slice(1);
+      const altered = getAlteredLetters(currentKeySigId);
+
+      // When a note is shown with an explicit accidental, it overrides the
+      // key signature for this single note: '#'/'b' shift the pitch, and
+      // '\u266E' (natural) cancels any key-signature alteration on this letter.
+      let expectedAccidental;
+      let displaySymbol;
+      if (currentNote.displayAcc === '#')      { expectedAccidental = '#'; displaySymbol = '\u266F'; }
+      else if (currentNote.displayAcc === 'b') { expectedAccidental = 'b'; displaySymbol = '\u266D'; }
+      else if (currentNote.displayAcc === 'n') { expectedAccidental = '';  displaySymbol = '\u266E'; }
+      else {
+        expectedAccidental = altered[noteLetter] || '';
+        displaySymbol = accidentalSymbol(expectedAccidental);
+      }
+      const fullName = `${noteLetter}${displaySymbol}${octave}`;
+
+      const correct = letter === noteLetter && accidental === expectedAccidental;
+
+      if (correct) {
+        if (btn) {
+          btn.classList.add('correct-flash');
+          setTimeout(() => btn.classList.remove('correct-flash'), 350);
+        }
+        if (currentMode === 'speed') {
+          if (!speedActive) return; // Ignore stray presses between sessions.
+          speedNoteCount += 1;
+          updateSpeedStats();
+          // Immediately advance to the next note — no setTimeout delay so the
+          // player's reaction time is what's actually being measured.
+          currentNote = pickRandomNote();
+          drawNote(currentNote);
+          ghostG.innerHTML = '';
+          locked = false;
+          messageEl.textContent = `Hit ${fullName} \u2014 next!`;
+          messageEl.className = 'message correct';
+        } else {
+          locked = true;
+          score++;
+          streak++;
+          if (streak > best) {
+            best = streak;
+            localStorage.setItem('sheetReaderBest', String(best));
+          }
+          scoreEl.textContent = score;
+          streakEl.textContent = streak;
+          bestEl.textContent = best;
+          messageEl.textContent = `Correct — that was ${fullName}`;
+          messageEl.className = 'message correct';
+          setTimeout(newRound, 650);
+        }
+      } else {
+        streak = 0;
+        streakEl.textContent = streak;
+        messageEl.textContent = `Not quite — try again`;
+        messageEl.className = 'message incorrect';
+        if (btn) {
+          btn.classList.add('wrong-flash');
+          setTimeout(() => btn.classList.remove('wrong-flash'), 350);
+        }
+        // Prefer the octave of the actual key the user pressed (so the ghost lands
+        // at the specific staff position they were aiming at). Fall back to the
+        // displayed note's octave for inputs that aren't tied to a physical key.
+        const guessedOctave = btn && btn.dataset.octave
+          ? parseInt(btn.dataset.octave, 10)
+          : parseInt(octave, 10);
+        drawGhostNote(letter, accidental, guessedOctave);
+      }
+    }
+
+    // Number row 1–7 maps to scale-degree letters C D E F G A B (so 1=C, ..., 7=B).
+    // Use e.code so Shift-modified keys (e.g. Shift+1 → '!') still resolve to a digit.
+    const DIGIT_TO_LETTER = { Digit1: 'C', Digit2: 'D', Digit3: 'E', Digit4: 'F', Digit5: 'G', Digit6: 'A', Digit7: 'B' };
+
+    document.addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      // Track left/right shift independently — e.shiftKey alone can't distinguish them.
+      if (e.code === 'ShiftLeft')  leftShiftHeld = true;
+      if (e.code === 'ShiftRight') rightShiftHeld = true;
+
+      let letter = null;
+      if (DIGIT_TO_LETTER[e.code]) {
+        letter = DIGIT_TO_LETTER[e.code];
+      } else {
+        const key = e.key.toUpperCase();
+        if (KEYS.includes(key)) letter = key;
+      }
+
+      if (letter) {
+        // Right shift → sharp, left shift → flat. Both up → natural.
+        let mod = '';
+        if (rightShiftHeld) mod = '#';
+        else if (leftShiftHeld) mod = 'b';
+
+        const btn = findKeyButton(letter, mod);
+        if (btn) {
+          btn.classList.add('pressed');
+          setTimeout(() => btn.classList.remove('pressed'), 100);
+        }
+        triggerGuess(letter, mod, btn);
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'ShiftLeft')  leftShiftHeld = false;
+      if (e.code === 'ShiftRight') rightShiftHeld = false;
+    });
+
+    // Reset shift state if window loses focus while a shift key is held.
+    window.addEventListener('blur', () => {
+      leftShiftHeld = false;
+      rightShiftHeld = false;
+    });
+
+    applyClef();
+    newRound();
+  </script>
+</body>
+</html>
