@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sheet Music Reader</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #1e3a5f 0%, #0a1929 100%);
+      color: #fff;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 720px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .subtitle {
+      margin: 0 0 24px;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-value {
+      font-size: 26px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .clef-toggle {
+      display: inline-flex;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 18px;
+      gap: 4px;
+    }
+
+    .clef-btn {
+      background: transparent;
+      color: rgba(255, 255, 255, 0.6);
+      border: none;
+      padding: 8px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: color 0.15s ease, background 0.2s ease;
+      font-family: inherit;
+    }
+
+    .clef-btn:hover { color: rgba(255, 255, 255, 0.9); }
+
+    .clef-btn.active {
+      background: rgba(255, 255, 255, 0.95);
+      color: #1e3a5f;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .staff-container {
+      background: #fafafa;
+      border-radius: 12px;
+      padding: 20px 8px;
+      margin-bottom: 20px;
+      box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .staff {
+      width: 100%;
+      height: auto;
+      display: block;
+      max-height: 260px;
+    }
+
+    .message {
+      min-height: 24px;
+      margin-bottom: 18px;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      transition: opacity 0.2s;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    .message.correct { color: #4ade80; }
+    .message.incorrect { color: #f87171; }
+
+    .piano {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .key {
+      background: #fff;
+      color: #1e3a5f;
+      border: none;
+      border-radius: 10px;
+      padding: 18px 0;
+      width: 64px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.08s ease, background 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+      font-family: inherit;
+    }
+
+    .key:hover {
+      background: #f0f4f8;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+    }
+
+    .key:active,
+    .key.pressed {
+      transform: translateY(0);
+      background: #d8e0e8;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    }
+
+    .key.correct-flash {
+      background: #4ade80 !important;
+      color: #fff !important;
+    }
+    .key.wrong-flash {
+      background: #f87171 !important;
+      color: #fff !important;
+    }
+
+    .hint {
+      margin-top: 14px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    @media (max-width: 480px) {
+      .container { padding: 20px; }
+      .stats { gap: 24px; }
+      .key { width: 44px; padding: 14px 0; font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Sheet Music Reader</h1>
+    <p class="subtitle">Identify the note shown on the staff</p>
+
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-label">Score</span>
+        <span class="stat-value" id="score">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Streak</span>
+        <span class="stat-value" id="streak">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Best</span>
+        <span class="stat-value" id="best">0</span>
+      </div>
+    </div>
+
+    <div class="clef-toggle" role="tablist" aria-label="Clef selection">
+      <button class="clef-btn active" data-clef="treble" role="tab" aria-selected="true">Treble</button>
+      <button class="clef-btn" data-clef="bass" role="tab" aria-selected="false">Bass</button>
+    </div>
+
+    <div class="staff-container">
+      <svg class="staff" viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" aria-label="Musical staff">
+        <g id="staff-lines"></g>
+        <g id="ledger-lines"></g>
+        <text id="clef-symbol" x="36" y="200" font-size="170" fill="#1a1a1a" font-family="Times, serif" dominant-baseline="alphabetic">𝄞</text>
+        <g id="note"></g>
+      </svg>
+    </div>
+
+    <div class="message" id="message">Click a letter or press A–G on your keyboard</div>
+
+    <div class="piano" id="piano"></div>
+    <div class="hint" id="hint">Tip: notes range from A3 to C6 — letters repeat across octaves</div>
+  </div>
+
+  <script>
+    // Vertical layout (SVG y-coordinates):
+    //   Staff lines at y = 100, 120, 140, 160, 180 (top to bottom)
+    //   Each line/space differs by 10. Lower y = higher note.
+    //
+    // Treble clef reference points:
+    //   bottom line (y=180) = E4, top line (y=100) = F5
+    //   ledger lines below at y=200 (C4 / middle C), y=220 (A3)
+    //   ledger lines above at y=80 (A5), y=60 (C6)
+    //
+    // Bass clef reference points:
+    //   bottom line (y=180) = G2, top line (y=100) = A3
+    //   ledger lines below at y=200 (E2), y=220 (C2)
+    //   ledger lines above at y=80 (C4 / middle C), y=60 (E4)
+    const CLEFS = {
+      treble: {
+        glyph: '\u{1D11E}', // 𝄞
+        fontSize: 170,
+        glyphY: 200,
+        rangeLabel: 'A3 to C6',
+        notes: [
+          { name: 'A3', y: 220 }, { name: 'B3', y: 210 },
+          { name: 'C4', y: 200 }, { name: 'D4', y: 190 },
+          { name: 'E4', y: 180 }, { name: 'F4', y: 170 },
+          { name: 'G4', y: 160 }, { name: 'A4', y: 150 },
+          { name: 'B4', y: 140 }, { name: 'C5', y: 130 },
+          { name: 'D5', y: 120 }, { name: 'E5', y: 110 },
+          { name: 'F5', y: 100 }, { name: 'G5', y: 90 },
+          { name: 'A5', y: 80 },  { name: 'B5', y: 70 },
+          { name: 'C6', y: 60 },
+        ],
+      },
+      bass: {
+        glyph: '\u{1D122}', // 𝄢
+        fontSize: 110,
+        glyphY: 178,
+        rangeLabel: 'C2 to E4',
+        notes: [
+          { name: 'C2', y: 220 }, { name: 'D2', y: 210 },
+          { name: 'E2', y: 200 }, { name: 'F2', y: 190 },
+          { name: 'G2', y: 180 }, { name: 'A2', y: 170 },
+          { name: 'B2', y: 160 }, { name: 'C3', y: 150 },
+          { name: 'D3', y: 140 }, { name: 'E3', y: 130 },
+          { name: 'F3', y: 120 }, { name: 'G3', y: 110 },
+          { name: 'A3', y: 100 }, { name: 'B3', y: 90 },
+          { name: 'C4', y: 80 },  { name: 'D4', y: 70 },
+          { name: 'E4', y: 60 },
+        ],
+      },
+    };
+
+    const STAFF_X_START = 30;
+    const STAFF_X_END = 580;
+    const NOTE_X = 380;
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+
+    const staffLinesG = document.getElementById('staff-lines');
+    const ledgerLinesG = document.getElementById('ledger-lines');
+    const noteG = document.getElementById('note');
+    const clefSymbolEl = document.getElementById('clef-symbol');
+    const scoreEl = document.getElementById('score');
+    const streakEl = document.getElementById('streak');
+    const bestEl = document.getElementById('best');
+    const messageEl = document.getElementById('message');
+    const pianoEl = document.getElementById('piano');
+    const hintEl = document.getElementById('hint');
+    const clefBtns = document.querySelectorAll('.clef-btn');
+
+    let currentClefId = localStorage.getItem('sheetReaderClef') || 'treble';
+    if (!CLEFS[currentClefId]) currentClefId = 'treble';
+    let currentNote = null;
+    let score = 0;
+    let streak = 0;
+    let best = parseInt(localStorage.getItem('sheetReaderBest') || '0', 10);
+    let locked = false;
+
+    bestEl.textContent = best;
+
+    // Draw the 5 staff lines once.
+    for (let i = 0; i < 5; i++) {
+      const y = 100 + i * 20;
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', STAFF_X_START);
+      line.setAttribute('x2', STAFF_X_END);
+      line.setAttribute('y1', y);
+      line.setAttribute('y2', y);
+      line.setAttribute('stroke', '#1a1a1a');
+      line.setAttribute('stroke-width', '1.4');
+      staffLinesG.appendChild(line);
+    }
+
+    // Build piano-style answer buttons.
+    const KEYS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    KEYS.forEach((letter) => {
+      const btn = document.createElement('button');
+      btn.className = 'key';
+      btn.textContent = letter;
+      btn.dataset.note = letter;
+      btn.addEventListener('click', () => handleGuess(letter, btn));
+      pianoEl.appendChild(btn);
+    });
+
+    function pickRandomNote() {
+      const notes = CLEFS[currentClefId].notes;
+      let next = notes[Math.floor(Math.random() * notes.length)];
+      // Avoid immediately repeating the same pitch.
+      if (currentNote && next.name === currentNote.name) {
+        next = notes[(notes.indexOf(next) + 1) % notes.length];
+      }
+      return next;
+    }
+
+    function applyClef() {
+      const clef = CLEFS[currentClefId];
+      clefSymbolEl.textContent = clef.glyph;
+      clefSymbolEl.setAttribute('y', clef.glyphY);
+      clefSymbolEl.setAttribute('font-size', clef.fontSize);
+      hintEl.textContent = `Tip: notes range from ${clef.rangeLabel} — letters repeat across octaves`;
+      clefBtns.forEach((btn) => {
+        const isActive = btn.dataset.clef === currentClefId;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+    }
+
+    function setClef(clefId) {
+      if (!CLEFS[clefId] || clefId === currentClefId) return;
+      currentClefId = clefId;
+      localStorage.setItem('sheetReaderClef', clefId);
+      // Switching clefs is a fresh challenge — reset the run streak (but keep score & best).
+      streak = 0;
+      streakEl.textContent = streak;
+      messageEl.textContent = `Switched to ${clefId} clef`;
+      messageEl.className = 'message';
+      currentNote = null;
+      applyClef();
+      newRound();
+    }
+
+    clefBtns.forEach((btn) => {
+      btn.addEventListener('click', () => setClef(btn.dataset.clef));
+    });
+
+    function drawLedger(y) {
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', NOTE_X - 20);
+      line.setAttribute('x2', NOTE_X + 20);
+      line.setAttribute('y1', y);
+      line.setAttribute('y2', y);
+      line.setAttribute('stroke', '#1a1a1a');
+      line.setAttribute('stroke-width', '1.4');
+      ledgerLinesG.appendChild(line);
+    }
+
+    function drawNote(note) {
+      ledgerLinesG.innerHTML = '';
+      noteG.innerHTML = '';
+
+      // Ledger lines below the staff (only at line positions: 200, 220).
+      if (note.y >= 200) {
+        for (let y = 200; y <= note.y; y += 20) drawLedger(y);
+      }
+      // Ledger lines above the staff (only at line positions: 80, 60).
+      if (note.y <= 80) {
+        for (let y = 80; y >= note.y; y -= 20) drawLedger(y);
+      }
+
+      // Quarter note head (filled, slightly tilted ellipse).
+      const head = document.createElementNS(SVG_NS, 'ellipse');
+      head.setAttribute('cx', NOTE_X);
+      head.setAttribute('cy', note.y);
+      head.setAttribute('rx', 9);
+      head.setAttribute('ry', 6.5);
+      head.setAttribute('fill', '#1a1a1a');
+      head.setAttribute('transform', `rotate(-22 ${NOTE_X} ${note.y})`);
+      noteG.appendChild(head);
+
+      // Stem: up for notes on/below middle line (B4), down otherwise.
+      const stem = document.createElementNS(SVG_NS, 'line');
+      const stemUp = note.y >= 140;
+      if (stemUp) {
+        stem.setAttribute('x1', NOTE_X + 8);
+        stem.setAttribute('x2', NOTE_X + 8);
+        stem.setAttribute('y1', note.y - 2);
+        stem.setAttribute('y2', note.y - 56);
+      } else {
+        stem.setAttribute('x1', NOTE_X - 8);
+        stem.setAttribute('x2', NOTE_X - 8);
+        stem.setAttribute('y1', note.y + 2);
+        stem.setAttribute('y2', note.y + 56);
+      }
+      stem.setAttribute('stroke', '#1a1a1a');
+      stem.setAttribute('stroke-width', '2');
+      stem.setAttribute('stroke-linecap', 'round');
+      noteG.appendChild(stem);
+    }
+
+    function newRound() {
+      currentNote = pickRandomNote();
+      drawNote(currentNote);
+      locked = false;
+    }
+
+    function handleGuess(letter, btn) {
+      if (locked || !currentNote) return;
+      const correct = currentNote.name[0] === letter;
+
+      if (correct) {
+        locked = true;
+        score++;
+        streak++;
+        if (streak > best) {
+          best = streak;
+          localStorage.setItem('sheetReaderBest', String(best));
+        }
+        scoreEl.textContent = score;
+        streakEl.textContent = streak;
+        bestEl.textContent = best;
+        messageEl.textContent = `Correct — that was ${currentNote.name}`;
+        messageEl.className = 'message correct';
+        if (btn) {
+          btn.classList.add('correct-flash');
+          setTimeout(() => btn.classList.remove('correct-flash'), 350);
+        }
+        setTimeout(newRound, 650);
+      } else {
+        streak = 0;
+        streakEl.textContent = streak;
+        messageEl.textContent = `Not quite — try again`;
+        messageEl.className = 'message incorrect';
+        if (btn) {
+          btn.classList.add('wrong-flash');
+          setTimeout(() => btn.classList.remove('wrong-flash'), 350);
+        }
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const key = e.key.toUpperCase();
+      if (KEYS.includes(key)) {
+        const btn = pianoEl.querySelector(`[data-note="${key}"]`);
+        if (btn) {
+          btn.classList.add('pressed');
+          setTimeout(() => btn.classList.remove('pressed'), 100);
+        }
+        handleGuess(key, btn);
+      }
+    });
+
+    applyClef();
+    newRound();
+  </script>
+</body>
+</html>
