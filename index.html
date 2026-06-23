@@ -75,13 +75,21 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
     .clef-toggle {
       display: inline-flex;
       background: rgba(255, 255, 255, 0.06);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 10px;
       padding: 4px;
-      margin-bottom: 18px;
       gap: 4px;
     }
 
@@ -105,6 +113,43 @@
       color: #1e3a5f;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     }
+
+    .key-picker {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 4px 4px 4px 14px;
+      gap: 10px;
+    }
+
+    .key-picker label {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .key-picker select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-color: rgba(255, 255, 255, 0.95);
+      color: #1e3a5f;
+      border: none;
+      border-radius: 7px;
+      padding: 8px 30px 8px 12px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%231e3a5f' d='M6 7L0 1l1.4-1.4L6 4.2l4.6-4.6L12 1z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 10px;
+    }
+
+    .key-picker select:focus { outline: 2px solid rgba(255, 255, 255, 0.4); outline-offset: 1px; }
 
     .staff-container {
       background: #fafafa;
@@ -132,6 +177,49 @@
     }
     .message.correct { color: #4ade80; }
     .message.incorrect { color: #f87171; }
+
+    .piano-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .modifiers {
+      display: flex;
+      gap: 6px;
+    }
+
+    .mod {
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 8px 0;
+      width: 56px;
+      font-size: 20px;
+      font-family: "Times New Roman", Times, serif;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+      line-height: 1;
+    }
+
+    .mod:hover {
+      background: rgba(255, 255, 255, 0.16);
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    .mod.active {
+      background: rgba(255, 255, 255, 0.95);
+      color: #1e3a5f;
+      border-color: rgba(255, 255, 255, 0.95);
+    }
+
+    .mod.shift-active {
+      background: rgba(74, 222, 128, 0.25);
+      color: #fff;
+      border-color: rgba(74, 222, 128, 0.6);
+    }
 
     .piano {
       display: flex;
@@ -210,9 +298,15 @@
       </div>
     </div>
 
-    <div class="clef-toggle" role="tablist" aria-label="Clef selection">
-      <button class="clef-btn active" data-clef="treble" role="tab" aria-selected="true">Treble</button>
-      <button class="clef-btn" data-clef="bass" role="tab" aria-selected="false">Bass</button>
+    <div class="controls">
+      <div class="clef-toggle" role="tablist" aria-label="Clef selection">
+        <button class="clef-btn active" data-clef="treble" role="tab" aria-selected="true">Treble</button>
+        <button class="clef-btn" data-clef="bass" role="tab" aria-selected="false">Bass</button>
+      </div>
+      <div class="key-picker">
+        <label for="key-signature">Key</label>
+        <select id="key-signature" aria-label="Key signature"></select>
+      </div>
     </div>
 
     <div class="staff-container">
@@ -220,14 +314,22 @@
         <g id="staff-lines"></g>
         <g id="ledger-lines"></g>
         <text id="clef-symbol" x="36" y="200" font-size="170" fill="#1a1a1a" font-family="Times, serif" dominant-baseline="alphabetic">𝄞</text>
+        <g id="key-signature-staff"></g>
         <g id="note"></g>
       </svg>
     </div>
 
     <div class="message" id="message">Click a letter or press A–G on your keyboard</div>
 
-    <div class="piano" id="piano"></div>
-    <div class="hint" id="hint">Tip: notes range from A3 to C6 — letters repeat across octaves</div>
+    <div class="piano-stack">
+      <div class="modifiers" id="modifiers" aria-label="Accidental modifier">
+        <button class="mod" data-mod="b" title="Flat (Left Shift)">&#9837;</button>
+        <button class="mod active" data-mod="" title="Natural">&#9838;</button>
+        <button class="mod" data-mod="#" title="Sharp (Right Shift)">&#9839;</button>
+      </div>
+      <div class="piano" id="piano"></div>
+    </div>
+    <div class="hint" id="hint">Right Shift + letter = sharp, Left Shift + letter = flat</div>
   </div>
 
   <script>
@@ -281,14 +383,103 @@
       },
     };
 
+    // Standard order in which sharps and flats appear in key signatures.
+    const SHARP_ORDER = ['F', 'C', 'G', 'D', 'A', 'E', 'B'];
+    const FLAT_ORDER  = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
+
+    // 15 standard major key signatures, indexed by tonic id.
+    // kind: 'natural' | 'sharp' | 'flat'; count: how many sharps/flats apply.
+    const KEY_SIGNATURES = {
+      'C':  { name: 'C major',  kind: 'natural', count: 0 },
+      'G':  { name: 'G major',  kind: 'sharp',   count: 1 },
+      'D':  { name: 'D major',  kind: 'sharp',   count: 2 },
+      'A':  { name: 'A major',  kind: 'sharp',   count: 3 },
+      'E':  { name: 'E major',  kind: 'sharp',   count: 4 },
+      'B':  { name: 'B major',  kind: 'sharp',   count: 5 },
+      'F#': { name: 'F\u266F major', kind: 'sharp', count: 6 },
+      'C#': { name: 'C\u266F major', kind: 'sharp', count: 7 },
+      'F':  { name: 'F major',  kind: 'flat',    count: 1 },
+      'Bb': { name: 'B\u266D major', kind: 'flat', count: 2 },
+      'Eb': { name: 'E\u266D major', kind: 'flat', count: 3 },
+      'Ab': { name: 'A\u266D major', kind: 'flat', count: 4 },
+      'Db': { name: 'D\u266D major', kind: 'flat', count: 5 },
+      'Gb': { name: 'G\u266D major', kind: 'flat', count: 6 },
+      'Cb': { name: 'C\u266D major', kind: 'flat', count: 7 },
+    };
+
+    // Where each sharp/flat sits on the staff, per clef. Y values match staff line/space positions.
+    // Each accidental lives at the line/space of the actual altered pitch in standard notation.
+    const ACCIDENTAL_POSITIONS = {
+      treble: {
+        sharp: { F: 100, C: 130, G: 90,  D: 120, A: 150, E: 110, B: 140 },
+        flat:  { B: 140, E: 110, A: 150, D: 120, G: 160, C: 130, F: 100 },
+      },
+      bass: {
+        sharp: { F: 120, C: 150, G: 110, D: 140, A: 170, E: 130, B: 160 },
+        flat:  { B: 160, E: 130, A: 170, D: 140, G: 110, C: 150, F: 120 },
+      },
+    };
+
     const STAFF_X_START = 30;
     const STAFF_X_END = 580;
     const NOTE_X = 380;
+    const KEY_SIG_START_X = 132;
+    const KEY_SIG_SPACING = 13;
     const SVG_NS = 'http://www.w3.org/2000/svg';
+
+    // --- Web Audio: synthesize notes on the fly, no external files. ---
+    // Letter -> semitone offset within an octave (C=0).
+    const LETTER_SEMITONES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+    let audioCtx = null;
+    function getAudioCtx() {
+      if (!audioCtx) {
+        const Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) return null;
+        audioCtx = new Ctor();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function noteFrequency(letter, accidental, octave) {
+      const accOffset = accidental === '#' ? 1 : accidental === 'b' ? -1 : 0;
+      const midi = (octave + 1) * 12 + LETTER_SEMITONES[letter] + accOffset;
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    // Slightly richer-than-sine timbre via a few harmonics.
+    let cachedWave = null;
+    function getPianoishWave(ctx) {
+      if (!cachedWave) {
+        const real = new Float32Array([0, 1, 0.45, 0.22, 0.12, 0.06, 0.03]);
+        const imag = new Float32Array(real.length);
+        cachedWave = ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+      }
+      return cachedWave;
+    }
+
+    function playPitch(letter, accidental, octave, duration = 0.9) {
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      const freq = noteFrequency(letter, accidental, octave);
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.setPeriodicWave(getPianoishWave(ctx));
+      osc.frequency.value = freq;
+      // Quick attack, gentle exponential decay — avoids clicks and feels musical.
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.22, now + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration + 0.05);
+    }
 
     const staffLinesG = document.getElementById('staff-lines');
     const ledgerLinesG = document.getElementById('ledger-lines');
     const noteG = document.getElementById('note');
+    const keySigG = document.getElementById('key-signature-staff');
     const clefSymbolEl = document.getElementById('clef-symbol');
     const scoreEl = document.getElementById('score');
     const streakEl = document.getElementById('streak');
@@ -297,16 +488,44 @@
     const pianoEl = document.getElementById('piano');
     const hintEl = document.getElementById('hint');
     const clefBtns = document.querySelectorAll('.clef-btn');
+    const keySelect = document.getElementById('key-signature');
+    const modBtns = document.querySelectorAll('.mod');
 
     let currentClefId = localStorage.getItem('sheetReaderClef') || 'treble';
     if (!CLEFS[currentClefId]) currentClefId = 'treble';
+    let currentKeySigId = localStorage.getItem('sheetReaderKeySig') || 'C';
+    if (!KEY_SIGNATURES[currentKeySigId]) currentKeySigId = 'C';
     let currentNote = null;
+    let activeModifier = ''; // '' | '#' | 'b' — pending modifier for next click
+    let leftShiftHeld = false;
+    let rightShiftHeld = false;
     let score = 0;
     let streak = 0;
     let best = parseInt(localStorage.getItem('sheetReaderBest') || '0', 10);
     let locked = false;
 
     bestEl.textContent = best;
+
+    // Populate the key signature picker.
+    const KEY_GROUPS = [
+      { label: 'Natural', keys: ['C'] },
+      { label: 'Sharp keys', keys: ['G', 'D', 'A', 'E', 'B', 'F#', 'C#'] },
+      { label: 'Flat keys',  keys: ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'] },
+    ];
+    KEY_GROUPS.forEach((group) => {
+      const og = document.createElement('optgroup');
+      og.label = group.label;
+      group.keys.forEach((id) => {
+        const ks = KEY_SIGNATURES[id];
+        const opt = document.createElement('option');
+        opt.value = id;
+        const suffix = ks.count === 0 ? '' : ` (${ks.count}${ks.kind === 'sharp' ? '\u266F' : '\u266D'})`;
+        opt.textContent = `${ks.name}${suffix}`;
+        og.appendChild(opt);
+      });
+      keySelect.appendChild(og);
+    });
+    keySelect.value = currentKeySigId;
 
     // Draw the 5 staff lines once.
     for (let i = 0; i < 5; i++) {
@@ -328,8 +547,27 @@
       btn.className = 'key';
       btn.textContent = letter;
       btn.dataset.note = letter;
-      btn.addEventListener('click', () => handleGuess(letter, btn));
+      btn.addEventListener('click', () => {
+        const mod = activeModifier;
+        const octave = currentNote ? parseInt(currentNote.name.slice(1), 10) : 4;
+        playPitch(letter, mod, octave);
+        handleGuess(letter, mod, btn);
+        // Pending modifier resets after a click.
+        setActiveModifier('');
+      });
       pianoEl.appendChild(btn);
+    });
+
+    // Modifier button toggles (sticky until next letter click).
+    function setActiveModifier(mod) {
+      activeModifier = mod;
+      modBtns.forEach((b) => b.classList.toggle('active', b.dataset.mod === mod));
+    }
+    modBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        // Clicking the already-active modifier toggles it back to natural.
+        setActiveModifier(activeModifier === btn.dataset.mod && btn.dataset.mod !== '' ? '' : btn.dataset.mod);
+      });
     });
 
     function pickRandomNote() {
@@ -342,24 +580,71 @@
       return next;
     }
 
+    // Return a map of letter -> '#'|'b' for the active key signature.
+    function getAlteredLetters(keySigId) {
+      const ks = KEY_SIGNATURES[keySigId];
+      const map = {};
+      if (ks.kind === 'sharp') {
+        SHARP_ORDER.slice(0, ks.count).forEach((l) => (map[l] = '#'));
+      } else if (ks.kind === 'flat') {
+        FLAT_ORDER.slice(0, ks.count).forEach((l) => (map[l] = 'b'));
+      }
+      return map;
+    }
+
+    function accidentalSymbol(acc) {
+      return acc === '#' ? '\u266F' : acc === 'b' ? '\u266D' : '';
+    }
+
+    function drawKeySignature() {
+      keySigG.innerHTML = '';
+      const ks = KEY_SIGNATURES[currentKeySigId];
+      if (ks.kind === 'natural' || ks.count === 0) return;
+
+      const positions = ACCIDENTAL_POSITIONS[currentClefId][ks.kind];
+      const order = ks.kind === 'sharp' ? SHARP_ORDER : FLAT_ORDER;
+      const symbol = ks.kind === 'sharp' ? '\u266F' : '\u266D';
+      const fontSize = ks.kind === 'sharp' ? 26 : 30;
+      // Flats render with their visual center slightly above the y line; sharps are centered on it.
+      const yOffset = ks.kind === 'sharp' ? 0 : -2;
+
+      let x = KEY_SIG_START_X;
+      for (let i = 0; i < ks.count; i++) {
+        const letter = order[i];
+        const y = positions[letter];
+        const text = document.createElementNS(SVG_NS, 'text');
+        text.setAttribute('x', x);
+        text.setAttribute('y', y + yOffset);
+        text.setAttribute('font-size', fontSize);
+        text.setAttribute('fill', '#1a1a1a');
+        text.setAttribute('font-family', 'Times, serif');
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.textContent = symbol;
+        keySigG.appendChild(text);
+        x += KEY_SIG_SPACING;
+      }
+    }
+
     function applyClef() {
       const clef = CLEFS[currentClefId];
       clefSymbolEl.textContent = clef.glyph;
       clefSymbolEl.setAttribute('y', clef.glyphY);
       clefSymbolEl.setAttribute('font-size', clef.fontSize);
-      hintEl.textContent = `Tip: notes range from ${clef.rangeLabel} — letters repeat across octaves`;
+      const ks = KEY_SIGNATURES[currentKeySigId];
+      hintEl.textContent = `${clef.rangeLabel} • ${ks.name} • Right Shift = sharp, Left Shift = flat`;
       clefBtns.forEach((btn) => {
         const isActive = btn.dataset.clef === currentClefId;
         btn.classList.toggle('active', isActive);
         btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
       });
+      drawKeySignature();
     }
 
     function setClef(clefId) {
       if (!CLEFS[clefId] || clefId === currentClefId) return;
       currentClefId = clefId;
       localStorage.setItem('sheetReaderClef', clefId);
-      // Switching clefs is a fresh challenge — reset the run streak (but keep score & best).
       streak = 0;
       streakEl.textContent = streak;
       messageEl.textContent = `Switched to ${clefId} clef`;
@@ -369,9 +654,23 @@
       newRound();
     }
 
+    function setKeySignature(keySigId) {
+      if (!KEY_SIGNATURES[keySigId] || keySigId === currentKeySigId) return;
+      currentKeySigId = keySigId;
+      localStorage.setItem('sheetReaderKeySig', keySigId);
+      streak = 0;
+      streakEl.textContent = streak;
+      messageEl.textContent = `Key signature: ${KEY_SIGNATURES[keySigId].name}`;
+      messageEl.className = 'message';
+      currentNote = null;
+      applyClef();
+      newRound();
+    }
+
     clefBtns.forEach((btn) => {
       btn.addEventListener('click', () => setClef(btn.dataset.clef));
     });
+    keySelect.addEventListener('change', (e) => setKeySignature(e.target.value));
 
     function drawLedger(y) {
       const line = document.createElementNS(SVG_NS, 'line');
@@ -433,9 +732,15 @@
       locked = false;
     }
 
-    function handleGuess(letter, btn) {
+    function handleGuess(letter, accidental, btn) {
       if (locked || !currentNote) return;
-      const correct = currentNote.name[0] === letter;
+      const noteLetter = currentNote.name[0];
+      const octave = currentNote.name.slice(1);
+      const altered = getAlteredLetters(currentKeySigId);
+      const expectedAccidental = altered[noteLetter] || '';
+      const fullName = `${noteLetter}${accidentalSymbol(expectedAccidental)}${octave}`;
+
+      const correct = letter === noteLetter && accidental === expectedAccidental;
 
       if (correct) {
         locked = true;
@@ -448,7 +753,7 @@
         scoreEl.textContent = score;
         streakEl.textContent = streak;
         bestEl.textContent = best;
-        messageEl.textContent = `Correct — that was ${currentNote.name}`;
+        messageEl.textContent = `Correct — that was ${fullName}`;
         messageEl.className = 'message correct';
         if (btn) {
           btn.classList.add('correct-flash');
@@ -467,17 +772,48 @@
       }
     }
 
+    function updateShiftFeedback() {
+      const flatBtn = document.querySelector('.mod[data-mod="b"]');
+      const sharpBtn = document.querySelector('.mod[data-mod="#"]');
+      flatBtn.classList.toggle('shift-active', leftShiftHeld && !rightShiftHeld);
+      sharpBtn.classList.toggle('shift-active', rightShiftHeld);
+    }
+
     document.addEventListener('keydown', (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      // Track left/right shift independently — e.shiftKey alone can't distinguish them.
+      if (e.code === 'ShiftLeft')  { leftShiftHeld = true;  updateShiftFeedback(); }
+      if (e.code === 'ShiftRight') { rightShiftHeld = true; updateShiftFeedback(); }
+
       const key = e.key.toUpperCase();
       if (KEYS.includes(key)) {
+        // Right shift takes priority if both are held.
+        let mod = '';
+        if (rightShiftHeld) mod = '#';
+        else if (leftShiftHeld) mod = 'b';
+
         const btn = pianoEl.querySelector(`[data-note="${key}"]`);
         if (btn) {
           btn.classList.add('pressed');
           setTimeout(() => btn.classList.remove('pressed'), 100);
         }
-        handleGuess(key, btn);
+        const octave = currentNote ? parseInt(currentNote.name.slice(1), 10) : 4;
+        playPitch(key, mod, octave);
+        handleGuess(key, mod, btn);
       }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'ShiftLeft')  { leftShiftHeld = false;  updateShiftFeedback(); }
+      if (e.code === 'ShiftRight') { rightShiftHeld = false; updateShiftFeedback(); }
+    });
+
+    // Reset shift state if window loses focus while a shift key is held.
+    window.addEventListener('blur', () => {
+      leftShiftHeld = false;
+      rightShiftHeld = false;
+      updateShiftFeedback();
     });
 
     applyClef();
