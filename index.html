@@ -221,39 +221,102 @@
       border-color: rgba(74, 222, 128, 0.6);
     }
 
+    .piano-scroll {
+      max-width: 100%;
+      overflow-x: auto;
+      padding: 2px 2px 6px;
+      /* hide native scrollbar visually but keep functionality */
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+    .piano-scroll::-webkit-scrollbar { height: 6px; }
+    .piano-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 3px; }
+    .piano-scroll::-webkit-scrollbar-track { background: transparent; }
+
     .piano {
+      --white-w: 36px;
+      --white-h: 144px;
+      --black-w: 24px;
+      --black-h: 92px;
+      position: relative;
       display: flex;
-      justify-content: center;
-      gap: 8px;
-      flex-wrap: wrap;
+      gap: 0;
+      padding: 6px 6px 8px;
+      width: max-content;
+      margin: 0 auto;
+      background: linear-gradient(to bottom, #0a0a0a, #1a1a1a);
+      border-radius: 6px 6px 12px 12px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
 
     .key {
-      background: #fff;
-      color: #1e3a5f;
       border: none;
-      border-radius: 10px;
-      padding: 18px 0;
-      width: 64px;
-      font-size: 18px;
-      font-weight: 600;
       cursor: pointer;
-      transition: transform 0.08s ease, background 0.15s ease, box-shadow 0.15s ease;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 -3px 0 rgba(0, 0, 0, 0.1);
       font-family: inherit;
+      font-weight: 600;
+      padding: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
     }
 
-    .key:hover {
-      background: #f0f4f8;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+    .key.white {
+      width: var(--white-w);
+      height: var(--white-h);
+      background: linear-gradient(to bottom, #ffffff 0%, #ffffff 88%, #d8dde3 100%);
+      color: #1e3a5f;
+      border-right: 1px solid #c4ccd4;
+      border-radius: 0 0 6px 6px;
+      font-size: 12px;
+      padding-bottom: 10px;
+      transition: background 0.08s ease, transform 0.06s ease;
+      position: relative;
+      z-index: 1;
+      flex-shrink: 0;
+    }
+    .key.white:last-of-type { border-right: none; }
+
+    .key.white:hover {
+      background: linear-gradient(to bottom, #f4f7fa 0%, #e4ebf1 100%);
+    }
+    .key.white:active,
+    .key.white.pressed {
+      background: linear-gradient(to bottom, #d8e0e8 0%, #c0c9d2 100%);
     }
 
-    .key:active,
-    .key.pressed {
-      transform: translateY(0);
-      background: #d8e0e8;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    .key.black {
+      position: absolute;
+      top: 6px;
+      width: var(--black-w);
+      height: var(--black-h);
+      left: calc(6px + var(--white-w) * var(--pos) - var(--black-w) / 2);
+      background: linear-gradient(to bottom, #3a3a3a 0%, #0a0a0a 92%, #2a2a2a 100%);
+      color: rgba(255, 255, 255, 0.85);
+      border-radius: 0 0 4px 4px;
+      font-size: 8px;
+      padding-bottom: 6px;
+      box-shadow: 0 3px 0 #000, 0 5px 10px rgba(0, 0, 0, 0.55), inset 0 -2px 0 rgba(255, 255, 255, 0.06);
+      transition: background 0.08s ease, transform 0.05s ease, box-shadow 0.08s ease;
+      z-index: 2;
+      letter-spacing: 0.02em;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 2px;
+      line-height: 1;
+    }
+
+    .key.black .lbl-sharp { color: rgba(255, 255, 255, 0.95); }
+    .key.black .lbl-flat  { color: rgba(255, 255, 255, 0.55); font-size: 7px; }
+
+    .key.black:hover {
+      background: linear-gradient(to bottom, #4a4a4a 0%, #1a1a1a 100%);
+    }
+    .key.black:active,
+    .key.black.pressed {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #000, 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+      background: linear-gradient(to bottom, #2a2a2a 0%, #050505 100%);
     }
 
     .key.correct-flash {
@@ -263,6 +326,22 @@
     .key.wrong-flash {
       background: #f87171 !important;
       color: #fff !important;
+    }
+    .key.black.correct-flash {
+      background: linear-gradient(to bottom, #4ade80 0%, #16a34a 100%) !important;
+    }
+    .key.black.wrong-flash {
+      background: linear-gradient(to bottom, #f87171 0%, #dc2626 100%) !important;
+    }
+
+    .ghost-fade {
+      animation: ghostFade 1.4s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes ghostFade {
+      0%   { opacity: 0.7; }
+      70%  { opacity: 0.55; }
+      100% { opacity: 0; }
     }
 
     .hint {
@@ -274,7 +353,10 @@
     @media (max-width: 480px) {
       .container { padding: 20px; }
       .stats { gap: 24px; }
-      .key { width: 44px; padding: 14px 0; font-size: 16px; }
+      .piano { --white-w: 30px; --white-h: 116px; --black-w: 20px; --black-h: 74px; }
+      .key.white { font-size: 10px; padding-bottom: 8px; }
+      .key.black { font-size: 7px; padding-bottom: 5px; }
+      .key.black .lbl-flat { font-size: 6px; }
     }
   </style>
 </head>
@@ -315,6 +397,7 @@
         <g id="ledger-lines"></g>
         <text id="clef-symbol" x="36" y="200" font-size="170" fill="#1a1a1a" font-family="Times, serif" dominant-baseline="alphabetic">𝄞</text>
         <g id="key-signature-staff"></g>
+        <g id="ghost-note"></g>
         <g id="note"></g>
       </svg>
     </div>
@@ -327,7 +410,9 @@
         <button class="mod active" data-mod="" title="Natural">&#9838;</button>
         <button class="mod" data-mod="#" title="Sharp (Right Shift)">&#9839;</button>
       </div>
-      <div class="piano" id="piano"></div>
+      <div class="piano-scroll">
+        <div class="piano" id="piano"></div>
+      </div>
     </div>
     <div class="hint" id="hint">Right Shift + letter = sharp, Left Shift + letter = flat</div>
   </div>
@@ -479,6 +564,7 @@
     const staffLinesG = document.getElementById('staff-lines');
     const ledgerLinesG = document.getElementById('ledger-lines');
     const noteG = document.getElementById('note');
+    const ghostG = document.getElementById('ghost-note');
     const keySigG = document.getElementById('key-signature-staff');
     const clefSymbolEl = document.getElementById('clef-symbol');
     const scoreEl = document.getElementById('score');
@@ -540,23 +626,125 @@
       staffLinesG.appendChild(line);
     }
 
-    // Build piano-style answer buttons.
+    // Letters recognized by the keyboard handler (A–G).
     const KEYS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-    KEYS.forEach((letter) => {
-      const btn = document.createElement('button');
-      btn.className = 'key';
-      btn.textContent = letter;
-      btn.dataset.note = letter;
-      btn.addEventListener('click', () => {
-        const mod = activeModifier;
-        const octave = currentNote ? parseInt(currentNote.name.slice(1), 10) : 4;
-        playPitch(letter, mod, octave);
-        handleGuess(letter, mod, btn);
-        // Pending modifier resets after a click.
-        setActiveModifier('');
+
+    // Send a guess + audio for a specific piano key. If `btn` carries data-octave,
+    // its octave is used for audio so each physical key sounds at its true pitch;
+    // otherwise we fall back to the currently-displayed note's octave.
+    function triggerGuess(letter, accidental, btn) {
+      let octave;
+      if (btn && btn.dataset.octave) {
+        octave = parseInt(btn.dataset.octave, 10);
+      } else if (currentNote) {
+        octave = parseInt(currentNote.name.slice(1), 10);
+      } else {
+        octave = 4;
+      }
+      playPitch(letter, accidental, octave);
+      handleGuess(letter, accidental, btn);
+      setActiveModifier('');
+    }
+
+    // Build a piano covering the full pitch range of the given clef. Whites span
+    // every natural in the clef's note list; blacks are inserted at every
+    // whole-step gap (i.e. anywhere not E→F or B→C).
+    function buildPiano(clefId) {
+      pianoEl.innerHTML = '';
+      const notes = CLEFS[clefId].notes;
+
+      // Whites first so they sit in DOM order left-to-right; blacks layered on top.
+      notes.forEach((n) => {
+        const letter = n.name[0];
+        const octave = parseInt(n.name.slice(1), 10);
+        const btn = document.createElement('button');
+        btn.className = 'key white';
+        btn.dataset.letter = letter;
+        btn.dataset.octave = String(octave);
+        // Label every C with its octave for orientation; other keys get the bare letter.
+        btn.textContent = letter === 'C' ? `${letter}${octave}` : letter;
+        btn.addEventListener('click', () => triggerGuess(letter, activeModifier, btn));
+        pianoEl.appendChild(btn);
       });
-      pianoEl.appendChild(btn);
-    });
+
+      // Black keys: insert wherever the gap between consecutive whites is a whole step.
+      for (let i = 0; i < notes.length - 1; i++) {
+        const letter = notes[i].name[0];
+        const nextLetter = notes[i + 1].name[0];
+        // No black key at E→F or B→C (those are already half steps).
+        if ((letter === 'E' && nextLetter === 'F') || (letter === 'B' && nextLetter === 'C')) continue;
+        const octave = parseInt(notes[i].name.slice(1), 10);
+
+        const btn = document.createElement('button');
+        btn.className = 'key black';
+        btn.style.setProperty('--pos', String(i + 1));
+        btn.dataset.sharp = letter;
+        btn.dataset.flat = nextLetter;
+        btn.dataset.octave = String(octave);
+        btn.title = `${letter}\u266F${octave} / ${nextLetter}\u266D${octave}`;
+        btn.setAttribute('aria-label', `${letter} sharp or ${nextLetter} flat, octave ${octave}`);
+        const sharpLbl = document.createElement('span');
+        sharpLbl.className = 'lbl-sharp';
+        sharpLbl.textContent = `${letter}\u266F`;
+        const flatLbl = document.createElement('span');
+        flatLbl.className = 'lbl-flat';
+        flatLbl.textContent = `${nextLetter}\u266D`;
+        btn.appendChild(sharpLbl);
+        btn.appendChild(flatLbl);
+
+        btn.addEventListener('click', () => {
+          // Spelling priority: explicit modifier > spelling that matches the
+          // displayed note's letter > sharp (default). This makes pressing the
+          // right physical key always count, even when the displayed note uses
+          // the enharmonic equivalent (e.g. A♭ in E♭ major shown on the A line).
+          let guessLetter;
+          let acc;
+          if (activeModifier === 'b') {
+            guessLetter = nextLetter; acc = 'b';
+          } else if (activeModifier === '#') {
+            guessLetter = letter; acc = '#';
+          } else if (currentNote) {
+            const noteLetter = currentNote.name[0];
+            if (noteLetter === nextLetter)      { guessLetter = nextLetter; acc = 'b'; }
+            else if (noteLetter === letter)     { guessLetter = letter;     acc = '#'; }
+            else                                { guessLetter = letter;     acc = '#'; }
+          } else {
+            guessLetter = letter; acc = '#';
+          }
+          triggerGuess(guessLetter, acc, btn);
+        });
+        pianoEl.appendChild(btn);
+      }
+    }
+
+    // Map a (letter, accidental) guess back to a visual key. When the piano spans
+    // multiple octaves we pick the candidate closest to the currently-displayed
+    // note's octave, so keyboard presses light up the most contextually relevant key.
+    function findKeyButton(letter, accidental) {
+      let candidates;
+      if (accidental === '#') {
+        candidates = pianoEl.querySelectorAll(`.key.black[data-sharp="${letter}"]`);
+        if (candidates.length === 0) candidates = pianoEl.querySelectorAll(`.key.white[data-letter="${letter}"]`);
+      } else if (accidental === 'b') {
+        candidates = pianoEl.querySelectorAll(`.key.black[data-flat="${letter}"]`);
+        if (candidates.length === 0) candidates = pianoEl.querySelectorAll(`.key.white[data-letter="${letter}"]`);
+      } else {
+        candidates = pianoEl.querySelectorAll(`.key.white[data-letter="${letter}"]`);
+      }
+      if (candidates.length === 0) return null;
+      if (candidates.length === 1) return candidates[0];
+
+      const preferred = currentNote ? parseInt(currentNote.name.slice(1), 10) : null;
+      if (preferred == null) return candidates[0];
+
+      let best = candidates[0];
+      let bestDiff = Math.abs(parseInt(best.dataset.octave, 10) - preferred);
+      for (let i = 1; i < candidates.length; i++) {
+        const diff = Math.abs(parseInt(candidates[i].dataset.octave, 10) - preferred);
+        if (diff < bestDiff) { best = candidates[i]; bestDiff = diff; }
+      }
+      return best;
+    }
 
     // Modifier button toggles (sticky until next letter click).
     function setActiveModifier(mod) {
@@ -632,13 +820,14 @@
       clefSymbolEl.setAttribute('y', clef.glyphY);
       clefSymbolEl.setAttribute('font-size', clef.fontSize);
       const ks = KEY_SIGNATURES[currentKeySigId];
-      hintEl.textContent = `${clef.rangeLabel} • ${ks.name} • Right Shift = sharp, Left Shift = flat`;
+      hintEl.textContent = `${clef.rangeLabel} • ${ks.name} • A–G or 1–7 to play • Shift for ♯/♭`;
       clefBtns.forEach((btn) => {
         const isActive = btn.dataset.clef === currentClefId;
         btn.classList.toggle('active', isActive);
         btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
       });
       drawKeySignature();
+      buildPiano(currentClefId);
     }
 
     function setClef(clefId) {
@@ -729,7 +918,94 @@
     function newRound() {
       currentNote = pickRandomNote();
       drawNote(currentNote);
+      ghostG.innerHTML = '';
       locked = false;
+    }
+
+    // Find where (letter) sits in the current clef, preferring the octave closest to the
+    // currently displayed note so the ghost stays in a comparable register.
+    function findStaffPositionFor(letter, preferredOctave) {
+      const notes = CLEFS[currentClefId].notes;
+      const exact = notes.find((n) => n.name === `${letter}${preferredOctave}`);
+      if (exact) return exact;
+      const candidates = notes.filter((n) => n.name[0] === letter);
+      if (candidates.length === 0) return null;
+      return candidates.reduce((best, n) => {
+        const o = parseInt(n.name.slice(1), 10);
+        const bo = parseInt(best.name.slice(1), 10);
+        return Math.abs(o - preferredOctave) < Math.abs(bo - preferredOctave) ? n : best;
+      });
+    }
+
+    // Ghost notes render offset to the left of the real-note column so the player
+    // can compare them side-by-side without overlap.
+    const GHOST_X = NOTE_X - 90;
+
+    function drawGhostNote(letter, accidental, preferredOctave) {
+      const target = findStaffPositionFor(letter, preferredOctave);
+      if (!target) return;
+      const y = target.y;
+
+      const g = document.createElementNS(SVG_NS, 'g');
+      g.setAttribute('class', 'ghost-fade');
+      g.setAttribute('fill', '#f87171');
+      g.setAttribute('stroke', '#f87171');
+
+      // Ledger lines mirroring drawNote, but in red and only for this ghost.
+      const ledgers = [];
+      if (y >= 200) for (let ly = 200; ly <= y; ly += 20) ledgers.push(ly);
+      if (y <= 80)  for (let ly = 80;  ly >= y; ly -= 20) ledgers.push(ly);
+      ledgers.forEach((ly) => {
+        const line = document.createElementNS(SVG_NS, 'line');
+        line.setAttribute('x1', GHOST_X - 20);
+        line.setAttribute('x2', GHOST_X + 20);
+        line.setAttribute('y1', ly);
+        line.setAttribute('y2', ly);
+        line.setAttribute('stroke-width', '1.4');
+        g.appendChild(line);
+      });
+
+      if (accidental) {
+        const acc = document.createElementNS(SVG_NS, 'text');
+        acc.setAttribute('x', GHOST_X - 18);
+        acc.setAttribute('y', y + (accidental === 'b' ? -1 : 1));
+        acc.setAttribute('font-size', accidental === 'b' ? 26 : 22);
+        acc.setAttribute('font-family', 'Times, serif');
+        acc.setAttribute('text-anchor', 'middle');
+        acc.setAttribute('dominant-baseline', 'middle');
+        acc.setAttribute('stroke', 'none');
+        acc.textContent = accidental === '#' ? '\u266F' : '\u266D';
+        g.appendChild(acc);
+      }
+
+      const head = document.createElementNS(SVG_NS, 'ellipse');
+      head.setAttribute('cx', GHOST_X);
+      head.setAttribute('cy', y);
+      head.setAttribute('rx', 9);
+      head.setAttribute('ry', 6.5);
+      head.setAttribute('stroke', 'none');
+      head.setAttribute('transform', `rotate(-22 ${GHOST_X} ${y})`);
+      g.appendChild(head);
+
+      const stem = document.createElementNS(SVG_NS, 'line');
+      const stemUp = y >= 140;
+      if (stemUp) {
+        stem.setAttribute('x1', GHOST_X + 8);
+        stem.setAttribute('x2', GHOST_X + 8);
+        stem.setAttribute('y1', y - 2);
+        stem.setAttribute('y2', y - 56);
+      } else {
+        stem.setAttribute('x1', GHOST_X - 8);
+        stem.setAttribute('x2', GHOST_X - 8);
+        stem.setAttribute('y1', y + 2);
+        stem.setAttribute('y2', y + 56);
+      }
+      stem.setAttribute('stroke-width', '2');
+      stem.setAttribute('stroke-linecap', 'round');
+      g.appendChild(stem);
+
+      ghostG.appendChild(g);
+      setTimeout(() => { if (g.parentNode === ghostG) ghostG.removeChild(g); }, 1500);
     }
 
     function handleGuess(letter, accidental, btn) {
@@ -769,6 +1045,13 @@
           btn.classList.add('wrong-flash');
           setTimeout(() => btn.classList.remove('wrong-flash'), 350);
         }
+        // Prefer the octave of the actual key the user pressed (so the ghost lands
+        // at the specific staff position they were aiming at). Fall back to the
+        // displayed note's octave for inputs that aren't tied to a physical key.
+        const guessedOctave = btn && btn.dataset.octave
+          ? parseInt(btn.dataset.octave, 10)
+          : parseInt(octave, 10);
+        drawGhostNote(letter, accidental, guessedOctave);
       }
     }
 
@@ -779,6 +1062,10 @@
       sharpBtn.classList.toggle('shift-active', rightShiftHeld);
     }
 
+    // Number row 1–7 maps to scale-degree letters C D E F G A B (so 1=C, ..., 7=B).
+    // Use e.code so Shift-modified keys (e.g. Shift+1 → '!') still resolve to a digit.
+    const DIGIT_TO_LETTER = { Digit1: 'C', Digit2: 'D', Digit3: 'E', Digit4: 'F', Digit5: 'G', Digit6: 'A', Digit7: 'B' };
+
     document.addEventListener('keydown', (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
@@ -786,21 +1073,27 @@
       if (e.code === 'ShiftLeft')  { leftShiftHeld = true;  updateShiftFeedback(); }
       if (e.code === 'ShiftRight') { rightShiftHeld = true; updateShiftFeedback(); }
 
-      const key = e.key.toUpperCase();
-      if (KEYS.includes(key)) {
-        // Right shift takes priority if both are held.
+      let letter = null;
+      if (DIGIT_TO_LETTER[e.code]) {
+        letter = DIGIT_TO_LETTER[e.code];
+      } else {
+        const key = e.key.toUpperCase();
+        if (KEYS.includes(key)) letter = key;
+      }
+
+      if (letter) {
+        // Right shift takes priority if both are held; otherwise fall back to the sticky modifier.
         let mod = '';
         if (rightShiftHeld) mod = '#';
         else if (leftShiftHeld) mod = 'b';
+        else mod = activeModifier;
 
-        const btn = pianoEl.querySelector(`[data-note="${key}"]`);
+        const btn = findKeyButton(letter, mod);
         if (btn) {
           btn.classList.add('pressed');
           setTimeout(() => btn.classList.remove('pressed'), 100);
         }
-        const octave = currentNote ? parseInt(currentNote.name.slice(1), 10) : 4;
-        playPitch(key, mod, octave);
-        handleGuess(key, mod, btn);
+        triggerGuess(letter, mod, btn);
       }
     });
 
